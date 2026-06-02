@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package middleware;
+
+// Go 빌드 시 생성될 패키지 경로
+option go_package = "agenic-middleware/middleware-go/pb";
+
+// 미들웨어가 제공하는 서비스 정의
+service TransactionMiddleware {
+  // Phase 1: 자원 조회 (QCFuse 기반 캐시 융합 대상)
+  rpc ReadResource (ReadRequest) returns (ReadResponse);
+  
+  // Phase 3: 트랜잭션 커밋 요청 (ATCC 기반 비용 인지 제어 대상)
+  rpc CommitTransaction (CommitRequest) returns (CommitResponse);
+}
+
+// 1. 조회 요청 메시지 (에이전트 -> 미들웨어)
+message ReadRequest {
+  string agent_id = 1;      // 요청하는 에이전트의 고유 ID
+  string resource_id = 2;   // 조회할 자원 ID (예: "flight_ticket_A")
+  string intent = 3;        // 조회의 목적 문맥 (QCFuse의 앵커 추출에 활용될 수 있음)
+}
+
+// 2. 조회 응답 메시지 (미들웨어 -> 에이전트)
+message ReadResponse {
+  bool success = 1;         
+  string data = 2;          // 캐싱 또는 DB에서 읽어온 데이터
+  string message = 3;       // 상태 메시지 (예: "캐시 적중" 또는 "DB 조회 완료")
+}
+
+// 3. 커밋 요청 메시지 (에이전트 -> 미들웨어)
+message CommitRequest {
+  string agent_id = 1;            // 에이전트 고유 ID
+  string resource_id = 2;         // 수정/구매할 자원 ID
+  int32 action_value = 3;         // 수행할 액션 (예: 재고 1개 차감)
+  
+  // ATCC 매몰 비용(Sunk Cost) 산정을 위한 데이터
+  int32 accumulated_tokens = 4;   // 에이전트가 현재까지 소모한 누적 LLM 토큰 수
+  float inference_latency_sec = 5; // LLM 추론에 소요된 대기 시간(초)
+}
+
+// 4. 커밋 응답 메시지 (미들웨어 -> 에이전트)
+message CommitResponse {
+  bool success = 1;               // 커밋 성공 여부 (충돌 시 패배하면 false)
+  bool is_rolled_back = 2;        // Saga 코디네이터에 의해 롤백되었는지 여부
+  string message = 3;             // 원인 메시지 (예: "비용이 낮아 롤백됨")
+  float saved_cost_usd = 4;       // 방어해 낸 매몰 비용 가치 (정량적 지표용)
+}

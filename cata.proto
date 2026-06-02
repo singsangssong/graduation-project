@@ -1,0 +1,20 @@
+syntax = "proto3";
+package cata;
+option go_package = "./pb";
+
+service TransactionMiddleware {
+  rpc CommitTransaction (CommitRequest) returns (CommitResponse);
+}
+
+message CommitRequest {
+  string agent_id = 1;
+  float accumulated_tokens = 2;
+  float inference_latency_sec = 3;
+}
+
+message CommitResponse {
+  bool success = 1;
+  bool is_rolled_back = 2;
+  string message = 3;
+  float saved_cost_usd = 4;
+}
