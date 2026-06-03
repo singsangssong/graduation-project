@@ -7,7 +7,7 @@ Rules:
 - Use generated files derived from `proto/middleware.proto`.
 - Keep stress-test output concise and useful for live demos.
 - Prefer deterministic or seedable test inputs when comparing behavior.
-- Do not rely on `cata.proto` for the final middleware demo path.
+- Keep all Python middleware clients aligned with `proto/middleware.proto`.
 
 Useful command:
 

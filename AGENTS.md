@@ -12,8 +12,8 @@ shared resources when multiple AI agents read, reason, and commit concurrently.
 - `middleware-go/`: Go gRPC middleware server.
 - `middleware-go/pb/`: generated Go protobuf files.
 - `agent-python/`: Python clients and stress-test scripts.
-- `pb/` and `cata.proto`: legacy AutoGen scenario protobuf files. These should be
-  migrated to the canonical `proto/middleware.proto` contract before production demo use.
+- `agentic_scenario.py`: optional AutoGen demo scenario that uses the canonical
+  Python protobuf files under `agent-python/`.
 
 ## Core Concepts
 

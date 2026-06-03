@@ -1,5 +1,8 @@
 import asyncio
 import os
+import sys
+from pathlib import Path
+
 import grpc
 from dotenv import load_dotenv
 
@@ -8,9 +11,13 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.ui import Console
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-# gRPC 컴파일된 파일 (폴더 경로에 맞게 pb 폴더에서 가져옴)
-import pb.cata_pb2 as pb2
-import pb.cata_pb2_grpc as pb2_grpc
+# gRPC 컴파일된 파일은 proto/middleware.proto에서 생성된 파일만 사용합니다.
+PROJECT_ROOT = Path(__file__).resolve().parent
+AGENT_PYTHON_DIR = PROJECT_ROOT / "agent-python"
+sys.path.insert(0, str(AGENT_PYTHON_DIR))
+
+import middleware_pb2 as pb2
+import middleware_pb2_grpc as pb2_grpc
 
 # .env 파일에서 OpenAI API 키 로드
 load_dotenv()
@@ -28,7 +35,9 @@ async def purchase_ticket_via_middleware(agent_id: str, token_cost: float, laten
         
         request = pb2.CommitRequest(
             agent_id=agent_id,
-            accumulated_tokens=token_cost,
+            resource_id="flight_ticket_A",
+            action_value=1,
+            accumulated_tokens=int(token_cost),
             inference_latency_sec=latency
         )
         
