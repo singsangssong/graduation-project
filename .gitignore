@@ -30,3 +30,8 @@ tmp/
 # Generated local artifacts
 *.prof
 outputs/
+
+# Local graduation presentation artifacts
+deliverables/final-presentation/
+scripts/build_final_presentation.js
+scripts/export_final_presentation_keynote.applescript
