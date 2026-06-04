@@ -3,103 +3,383 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agentic Middleware Dashboard</title>
+    <title>Agentic Middleware Demo Console</title>
     <style>
       :root {
         color-scheme: light;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f5f7fb;
-        color: #172033;
+        --bg: #f4f7fb;
+        --panel: #ffffff;
+        --ink: #162033;
+        --muted: #667085;
+        --line: #dbe3ef;
+        --blue: #2563eb;
+        --green: #079455;
+        --red: #d92d20;
+        --amber: #b54708;
+        --teal: #0f766e;
+        --slate: #344054;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         margin: 0;
+        background:
+          linear-gradient(180deg, #eef4ff 0, rgba(238, 244, 255, 0) 280px),
+          var(--bg);
+        color: var(--ink);
       }
 
       main {
-        max-width: 1120px;
+        max-width: 1360px;
         margin: 0 auto;
-        padding: 32px 20px 48px;
+        padding: 24px;
       }
 
       header {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 24px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 18px;
+        align-items: end;
+        margin-bottom: 18px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
       }
 
       h1 {
-        margin: 0;
-        font-size: 28px;
+        font-size: 30px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        font-size: 17px;
         letter-spacing: 0;
       }
 
       .subtitle {
-        margin: 8px 0 0;
-        color: #5b6577;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
 
       button {
-        min-height: 40px;
-        border: 1px solid #bcc5d6;
+        min-height: 38px;
+        border: 1px solid #b9c4d6;
         border-radius: 6px;
-        background: #ffffff;
-        color: #172033;
-        font-weight: 650;
-        padding: 0 14px;
+        background: #fff;
+        color: var(--ink);
+        font-weight: 700;
+        padding: 0 13px;
         cursor: pointer;
       }
 
-      .grid {
+      button.primary {
+        border-color: var(--blue);
+        background: var(--blue);
+        color: #fff;
+      }
+
+      .status-pill {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fff;
+        padding: 0 12px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--amber);
+      }
+
+      .dot.live {
+        background: var(--green);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+        gap: 14px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 10px 26px rgba(18, 33, 61, 0.06);
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .small {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .metric-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
+        gap: 10px;
+        margin-bottom: 14px;
       }
 
       .metric {
-        background: #ffffff;
-        border: 1px solid #dfe4ee;
+        border: 1px solid #e3e8f2;
         border-radius: 8px;
-        padding: 16px;
+        padding: 13px;
+        background: #fbfcff;
+        min-height: 106px;
       }
 
-      .label {
-        font-size: 13px;
-        color: #667085;
+      .metric .label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
       }
 
-      .value {
+      .metric .value {
         margin-top: 10px;
         font-size: 30px;
-        font-weight: 750;
+        line-height: 1;
+        font-weight: 800;
       }
 
-      .wide {
-        margin-top: 12px;
+      .metric .note {
+        margin-top: 9px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .flow {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        grid-template-columns: 1fr 46px 1fr 46px 1fr;
+        gap: 8px;
+        align-items: stretch;
+      }
+
+      .stage {
+        border: 1px solid #d7deeb;
+        border-radius: 8px;
+        padding: 14px;
+        min-height: 180px;
+        background: #fff;
+      }
+
+      .stage strong {
+        display: block;
+        font-size: 15px;
+      }
+
+      .stage p {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--slate);
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 12px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        background: #eef4ff;
+        color: #194185;
+        padding: 5px 9px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .agent-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .agent {
+        display: grid;
+        grid-template-columns: 78px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #e3e8f2;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fff;
+      }
+
+      .agent.winner {
+        border-color: rgba(7, 148, 85, 0.5);
+        background: #f0fdf4;
+      }
+
+      .agent.rollback {
+        background: #fff7ed;
+      }
+
+      .agent-name {
+        font-weight: 800;
+      }
+
+      .bar {
+        height: 10px;
+        border-radius: 99px;
+        background: #e8eef8;
+        overflow: hidden;
+      }
+
+      .bar span {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--blue);
+      }
+
+      .agent.winner .bar span {
+        background: var(--green);
+      }
+
+      .agent.rollback .bar span {
+        background: var(--amber);
+      }
+
+      .badge {
+        border-radius: 999px;
+        padding: 5px 8px;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .badge.win {
+        background: #dcfae6;
+        color: #067647;
+      }
+
+      .badge.rollback {
+        background: #fef0c7;
+        color: #93370d;
+      }
+
+      .script {
+        display: grid;
+        gap: 10px;
+      }
+
+      .script-step {
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #eef4ff;
+        color: var(--blue);
+        font-weight: 800;
+      }
+
+      code {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 12px;
+        color: #344054;
       }
 
       pre {
-        min-height: 220px;
+        min-height: 210px;
+        max-height: 280px;
         overflow: auto;
-        background: #111827;
-        color: #d1d5db;
+        background: #101828;
+        color: #d0d5dd;
         border-radius: 8px;
-        padding: 16px;
+        padding: 14px;
+        font-size: 12px;
       }
 
-      @media (max-width: 820px) {
-        header {
-          align-items: flex-start;
-          flex-direction: column;
+      .lower {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      @media (max-width: 1080px) {
+        .layout,
+        .lower {
+          grid-template-columns: 1fr;
         }
 
-        .grid,
-        .wide {
+        .metric-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        main {
+          padding: 18px;
+        }
+
+        header {
+          grid-template-columns: 1fr;
+        }
+
+        .actions {
+          flex-wrap: wrap;
+        }
+
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .arrow {
+          transform: rotate(90deg);
+          min-height: 32px;
+        }
+
+        .metric-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -109,64 +389,209 @@
     <main>
       <header>
         <div>
-          <h1>Agentic Middleware Dashboard</h1>
-          <p class="subtitle">QCFuse read fusion and ATCC commit arbitration metrics</p>
+          <h1>Agentic Middleware Demo Console</h1>
+          <p class="subtitle">다중 AI Agent의 조회 폭주와 커밋 경합을 QCFuse + ATCC로 제어하는 발표용 화면</p>
         </div>
-        <button id="refresh">Refresh</button>
+        <div class="actions">
+          <span class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">offline</span></span>
+          <button id="reset">Reset</button>
+          <button class="primary" id="refresh">Refresh</button>
+        </div>
       </header>
 
-      <section class="grid">
-        <div class="metric">
-          <div class="label">Read requests</div>
-          <div class="value" id="readRequests">-</div>
+      <section class="layout">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Live Middleware Metrics</h2>
+              <p class="small">Go middleware의 <code>/metrics</code> endpoint에서 실시간 수집</p>
+            </div>
+            <p class="small" id="updatedAt">-</p>
+          </div>
+
+          <div class="metric-grid">
+            <div class="metric">
+              <div class="label">QCFuse Read Requests</div>
+              <div class="value" id="readRequests">0</div>
+              <div class="note">동일 자원 조회 요청 수</div>
+            </div>
+            <div class="metric">
+              <div class="label">Saved DB Reads</div>
+              <div class="value" id="savedReads">0</div>
+              <div class="note">융합으로 줄인 DB I/O</div>
+            </div>
+            <div class="metric">
+              <div class="label">ATCC Commit Requests</div>
+              <div class="value" id="commitRequests">0</div>
+              <div class="note">커밋 경합 참여 agent</div>
+            </div>
+            <div class="metric">
+              <div class="label">Rollback Count</div>
+              <div class="value" id="rollbacks">0</div>
+              <div class="note">Saga-style rollback</div>
+            </div>
+          </div>
+
+          <div class="flow">
+            <div class="stage">
+              <strong>1. Concurrent Read</strong>
+              <p>여러 agent가 같은 티켓 재고를 동시에 조회한다. 기존 방식이라면 같은 DB read가 반복된다.</p>
+              <div class="chip-row">
+                <span class="chip" id="readBatchChip">batch -</span>
+                <span class="chip">resource flight_ticket_A</span>
+              </div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <strong>2. QCFuse</strong>
+              <p>짧은 시간 창 안에 모인 조회 요청을 하나의 logical DB I/O로 융합하고 결과를 broadcast한다.</p>
+              <div class="chip-row">
+                <span class="chip" id="qcfuseWindow">window -</span>
+                <span class="chip" id="savedReadChip">saved -</span>
+              </div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <strong>3. ATCC Commit</strong>
+              <p>agent가 소모한 token과 reasoning latency를 sunk cost로 환산해, 가장 큰 비용을 가진 요청을 승인한다.</p>
+              <div class="chip-row">
+                <span class="chip" id="atccWindow">window -</span>
+                <span class="chip" id="winnerChip">winner -</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="metric">
-          <div class="label">Saved DB reads</div>
-          <div class="value" id="savedReads">-</div>
-        </div>
-        <div class="metric">
-          <div class="label">Commit requests</div>
-          <div class="value" id="commitRequests">-</div>
-        </div>
-        <div class="metric">
-          <div class="label">Rollbacks</div>
-          <div class="value" id="rollbacks">-</div>
-        </div>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>ATCC Leaderboard</h2>
+              <p class="small">deterministic demo 기준 예상 sunk cost</p>
+            </div>
+            <span class="badge win" id="savedCost">$0.00 saved</span>
+          </div>
+          <div class="agent-list" id="agentList"></div>
+        </aside>
       </section>
 
-      <section class="wide">
-        <div class="metric">
-          <div class="label">Last winner</div>
-          <div class="value" id="winner">-</div>
+      <section class="lower">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Video Recording Script</h2>
+              <p class="small">데모 영상 촬영 때 그대로 따라갈 흐름</p>
+            </div>
+          </div>
+          <div class="script">
+            <div class="script-step">
+              <div class="step-num">1</div>
+              <div><strong>Middleware 실행</strong><br /><code>cd middleware-go && GOCACHE=/private/tmp/agenic-middleware-gocache go run .</code></div>
+            </div>
+            <div class="script-step">
+              <div class="step-num">2</div>
+              <div><strong>이 화면 열기</strong><br /><code>dashboard.html</code>에서 metrics가 live 상태인지 확인</div>
+            </div>
+            <div class="script-step">
+              <div class="step-num">3</div>
+              <div><strong>Deterministic demo 실행</strong><br /><code>cd agent-python && python3 deterministic_demo.py</code></div>
+            </div>
+            <div class="script-step">
+              <div class="step-num">4</div>
+              <div><strong>결과 설명</strong><br />QCFuse saved reads, ATCC winner, rollback saved cost를 차례대로 설명</div>
+            </div>
+          </div>
         </div>
-        <div class="metric">
-          <div class="label">Total saved cost</div>
-          <div class="value" id="savedCost">-</div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Raw Metrics</h2>
+              <p class="small">보고서 지표 확인용 JSON</p>
+            </div>
+          </div>
+          <pre id="raw">{}</pre>
         </div>
       </section>
-
-      <pre id="raw">{}</pre>
     </main>
 
     <script>
-      async function refresh() {
-        const response = await fetch("http://localhost:8080/metrics");
-        const data = await response.json();
-        const metrics = data.metrics;
+      const demoAgents = [
+        { id: "Agent-A", tokens: 4500, latency: 8.5 },
+        { id: "Agent-D", tokens: 3200, latency: 4.7 },
+        { id: "Agent-C", tokens: 1800, latency: 3.0 },
+        { id: "Agent-E", tokens: 900, latency: 2.1 },
+        { id: "Agent-B", tokens: 200, latency: 1.2 },
+      ].map((agent) => ({
+        ...agent,
+        cost: agent.tokens * 0.002 + agent.latency * 0.5,
+      }));
 
-        document.getElementById("readRequests").textContent = metrics.read_requests;
-        document.getElementById("savedReads").textContent = metrics.saved_db_reads;
-        document.getElementById("commitRequests").textContent = metrics.commit_requests;
-        document.getElementById("rollbacks").textContent = metrics.rolled_back_commits;
-        document.getElementById("winner").textContent = metrics.last_winner_agent_id || "-";
-        document.getElementById("savedCost").textContent = `$${metrics.total_saved_cost_usd.toFixed(2)}`;
-        document.getElementById("raw").textContent = JSON.stringify(data, null, 2);
+      const maxCost = Math.max(...demoAgents.map((agent) => agent.cost));
+
+      function renderAgents(winnerId) {
+        const list = document.getElementById("agentList");
+        list.innerHTML = "";
+        demoAgents.forEach((agent) => {
+          const status = winnerId === agent.id ? "winner" : winnerId ? "rollback" : "";
+          const item = document.createElement("div");
+          item.className = `agent ${status}`;
+          item.innerHTML = `
+            <div class="agent-name">${agent.id}</div>
+            <div>
+              <div class="bar"><span style="width:${(agent.cost / maxCost) * 100}%"></span></div>
+              <div class="small">${agent.tokens.toLocaleString()} tokens · ${agent.latency}s · $${agent.cost.toFixed(2)}</div>
+            </div>
+            <span class="badge ${status === "winner" ? "win" : "rollback"}">${status === "winner" ? "WIN" : status ? "ROLLBACK" : "READY"}</span>
+          `;
+          list.appendChild(item);
+        });
+      }
+
+      function setConnectionStatus(isLive, text) {
+        document.getElementById("statusDot").className = `dot ${isLive ? "live" : ""}`;
+        document.getElementById("statusText").textContent = text;
+      }
+
+      async function refresh() {
+        try {
+          const response = await fetch("http://localhost:8080/metrics");
+          const data = await response.json();
+          const metrics = data.metrics;
+          const config = data.config;
+
+          setConnectionStatus(true, "live");
+          document.getElementById("readRequests").textContent = metrics.read_requests;
+          document.getElementById("savedReads").textContent = metrics.saved_db_reads;
+          document.getElementById("commitRequests").textContent = metrics.commit_requests;
+          document.getElementById("rollbacks").textContent = metrics.rolled_back_commits;
+          document.getElementById("savedCost").textContent = `$${metrics.total_saved_cost_usd.toFixed(2)} saved`;
+          document.getElementById("readBatchChip").textContent = `batch ${metrics.last_read_batch_size || "-"}`;
+          document.getElementById("savedReadChip").textContent = `saved ${metrics.saved_db_reads}`;
+          document.getElementById("winnerChip").textContent = `winner ${metrics.last_winner_agent_id || "-"}`;
+          document.getElementById("qcfuseWindow").textContent = `${config.qcfuse_window_ms}ms`;
+          document.getElementById("atccWindow").textContent = `${config.atcc_window_ms}ms`;
+          document.getElementById("updatedAt").textContent = metrics.last_updated_unix_seconds
+            ? new Date(metrics.last_updated_unix_seconds * 1000).toLocaleTimeString()
+            : "waiting";
+          document.getElementById("raw").textContent = JSON.stringify(data, null, 2);
+          renderAgents(metrics.last_winner_agent_id);
+        } catch (error) {
+          setConnectionStatus(false, "offline");
+          document.getElementById("raw").textContent = `metrics fetch failed: ${error}`;
+          renderAgents("");
+        }
+      }
+
+      async function resetMetrics() {
+        await fetch("http://localhost:8080/reset", { method: "POST" });
+        await refresh();
       }
 
       document.getElementById("refresh").addEventListener("click", refresh);
-      refresh().catch((error) => {
-        document.getElementById("raw").textContent = `metrics fetch failed: ${error}`;
-      });
+      document.getElementById("reset").addEventListener("click", resetMetrics);
+      renderAgents("");
+      refresh();
+      setInterval(refresh, 1500);
     </script>
   </body>
 </html>
