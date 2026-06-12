@@ -27,6 +27,7 @@ type ReadRequest struct {
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`          // 요청하는 에이전트의 고유 ID
 	ResourceId    string                 `protobuf:"bytes,2,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"` // 조회할 자원 ID (예: "flight_ticket_A")
 	Intent        string                 `protobuf:"bytes,3,opt,name=intent,proto3" json:"intent,omitempty"`                           // 조회의 목적 문맥 (QCFuse의 앵커 추출에 활용될 수 있음)
+	SagaId        string                 `protobuf:"bytes,4,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`             // SagaLLM workflow와 연결되는 saga ID
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -78,6 +79,13 @@ func (x *ReadRequest) GetResourceId() string {
 func (x *ReadRequest) GetIntent() string {
 	if x != nil {
 		return x.Intent
+	}
+	return ""
+}
+
+func (x *ReadRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
 	}
 	return ""
 }
@@ -152,6 +160,7 @@ type CommitRequest struct {
 	// ATCC 매몰 비용(Sunk Cost) 산정을 위한 데이터
 	AccumulatedTokens   int32   `protobuf:"varint,4,opt,name=accumulated_tokens,json=accumulatedTokens,proto3" json:"accumulated_tokens,omitempty"`          // 에이전트가 현재까지 소모한 누적 LLM 토큰 수
 	InferenceLatencySec float32 `protobuf:"fixed32,5,opt,name=inference_latency_sec,json=inferenceLatencySec,proto3" json:"inference_latency_sec,omitempty"` // LLM 추론에 소요된 대기 시간(초)
+	SagaId              string  `protobuf:"bytes,6,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`                                            // commit 결과와 연결할 saga ID
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -221,6 +230,13 @@ func (x *CommitRequest) GetInferenceLatencySec() float32 {
 	return 0
 }
 
+func (x *CommitRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
 // 4. 커밋 응답 메시지 (미들웨어 -> 에이전트)
 type CommitResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -228,6 +244,7 @@ type CommitResponse struct {
 	IsRolledBack  bool                   `protobuf:"varint,2,opt,name=is_rolled_back,json=isRolledBack,proto3" json:"is_rolled_back,omitempty"`  // Saga 코디네이터에 의해 롤백되었는지 여부
 	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                                   // 원인 메시지 (예: "비용이 낮아 롤백됨")
 	SavedCostUsd  float32                `protobuf:"fixed32,4,opt,name=saved_cost_usd,json=savedCostUsd,proto3" json:"saved_cost_usd,omitempty"` // 방어해 낸 매몰 비용 가치 (정량적 지표용)
+	SagaStatus    string                 `protobuf:"bytes,5,opt,name=saga_status,json=sagaStatus,proto3" json:"saga_status,omitempty"`           // commit 이후 saga 상태
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -290,34 +307,610 @@ func (x *CommitResponse) GetSavedCostUsd() float32 {
 	return 0
 }
 
+func (x *CommitResponse) GetSagaStatus() string {
+	if x != nil {
+		return x.SagaStatus
+	}
+	return ""
+}
+
+type BeginSagaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Goal          string                 `protobuf:"bytes,2,opt,name=goal,proto3" json:"goal,omitempty"`
+	Context       map[string]string      `protobuf:"bytes,3,rep,name=context,proto3" json:"context,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BeginSagaRequest) Reset() {
+	*x = BeginSagaRequest{}
+	mi := &file_middleware_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BeginSagaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BeginSagaRequest) ProtoMessage() {}
+
+func (x *BeginSagaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BeginSagaRequest.ProtoReflect.Descriptor instead.
+func (*BeginSagaRequest) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *BeginSagaRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *BeginSagaRequest) GetGoal() string {
+	if x != nil {
+		return x.Goal
+	}
+	return ""
+}
+
+func (x *BeginSagaRequest) GetContext() map[string]string {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+type RegisterSagaStepRequest struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	SagaId             string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	StepId             string                 `protobuf:"bytes,2,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"`
+	Action             string                 `protobuf:"bytes,3,opt,name=action,proto3" json:"action,omitempty"`
+	Result             string                 `protobuf:"bytes,4,opt,name=result,proto3" json:"result,omitempty"`
+	CompensationAction string                 `protobuf:"bytes,5,opt,name=compensation_action,json=compensationAction,proto3" json:"compensation_action,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *RegisterSagaStepRequest) Reset() {
+	*x = RegisterSagaStepRequest{}
+	mi := &file_middleware_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterSagaStepRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterSagaStepRequest) ProtoMessage() {}
+
+func (x *RegisterSagaStepRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterSagaStepRequest.ProtoReflect.Descriptor instead.
+func (*RegisterSagaStepRequest) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RegisterSagaStepRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+func (x *RegisterSagaStepRequest) GetStepId() string {
+	if x != nil {
+		return x.StepId
+	}
+	return ""
+}
+
+func (x *RegisterSagaStepRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *RegisterSagaStepRequest) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+func (x *RegisterSagaStepRequest) GetCompensationAction() string {
+	if x != nil {
+		return x.CompensationAction
+	}
+	return ""
+}
+
+type ValidateSagaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SagaId        string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ValidateSagaRequest) Reset() {
+	*x = ValidateSagaRequest{}
+	mi := &file_middleware_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValidateSagaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValidateSagaRequest) ProtoMessage() {}
+
+func (x *ValidateSagaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValidateSagaRequest.ProtoReflect.Descriptor instead.
+func (*ValidateSagaRequest) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ValidateSagaRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+type AbortSagaRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SagaId        string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AbortSagaRequest) Reset() {
+	*x = AbortSagaRequest{}
+	mi := &file_middleware_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AbortSagaRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AbortSagaRequest) ProtoMessage() {}
+
+func (x *AbortSagaRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AbortSagaRequest.ProtoReflect.Descriptor instead.
+func (*AbortSagaRequest) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *AbortSagaRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+func (x *AbortSagaRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type GetSagaStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SagaId        string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSagaStateRequest) Reset() {
+	*x = GetSagaStateRequest{}
+	mi := &file_middleware_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSagaStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSagaStateRequest) ProtoMessage() {}
+
+func (x *GetSagaStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSagaStateRequest.ProtoReflect.Descriptor instead.
+func (*GetSagaStateRequest) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *GetSagaStateRequest) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+type SagaStep struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	StepId             string                 `protobuf:"bytes,1,opt,name=step_id,json=stepId,proto3" json:"step_id,omitempty"`
+	Action             string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	Result             string                 `protobuf:"bytes,3,opt,name=result,proto3" json:"result,omitempty"`
+	CompensationAction string                 `protobuf:"bytes,4,opt,name=compensation_action,json=compensationAction,proto3" json:"compensation_action,omitempty"`
+	Status             string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SagaStep) Reset() {
+	*x = SagaStep{}
+	mi := &file_middleware_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SagaStep) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SagaStep) ProtoMessage() {}
+
+func (x *SagaStep) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SagaStep.ProtoReflect.Descriptor instead.
+func (*SagaStep) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SagaStep) GetStepId() string {
+	if x != nil {
+		return x.StepId
+	}
+	return ""
+}
+
+func (x *SagaStep) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *SagaStep) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+func (x *SagaStep) GetCompensationAction() string {
+	if x != nil {
+		return x.CompensationAction
+	}
+	return ""
+}
+
+func (x *SagaStep) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type SagaState struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SagaId               string                 `protobuf:"bytes,1,opt,name=saga_id,json=sagaId,proto3" json:"saga_id,omitempty"`
+	AgentId              string                 `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Goal                 string                 `protobuf:"bytes,3,opt,name=goal,proto3" json:"goal,omitempty"`
+	Status               string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Steps                []*SagaStep            `protobuf:"bytes,5,rep,name=steps,proto3" json:"steps,omitempty"`
+	ValidationMessage    string                 `protobuf:"bytes,6,opt,name=validation_message,json=validationMessage,proto3" json:"validation_message,omitempty"`
+	AbortReason          string                 `protobuf:"bytes,7,opt,name=abort_reason,json=abortReason,proto3" json:"abort_reason,omitempty"`
+	CreatedAtUnixSeconds int64                  `protobuf:"varint,8,opt,name=created_at_unix_seconds,json=createdAtUnixSeconds,proto3" json:"created_at_unix_seconds,omitempty"`
+	UpdatedAtUnixSeconds int64                  `protobuf:"varint,9,opt,name=updated_at_unix_seconds,json=updatedAtUnixSeconds,proto3" json:"updated_at_unix_seconds,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *SagaState) Reset() {
+	*x = SagaState{}
+	mi := &file_middleware_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SagaState) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SagaState) ProtoMessage() {}
+
+func (x *SagaState) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SagaState.ProtoReflect.Descriptor instead.
+func (*SagaState) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SagaState) GetSagaId() string {
+	if x != nil {
+		return x.SagaId
+	}
+	return ""
+}
+
+func (x *SagaState) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *SagaState) GetGoal() string {
+	if x != nil {
+		return x.Goal
+	}
+	return ""
+}
+
+func (x *SagaState) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *SagaState) GetSteps() []*SagaStep {
+	if x != nil {
+		return x.Steps
+	}
+	return nil
+}
+
+func (x *SagaState) GetValidationMessage() string {
+	if x != nil {
+		return x.ValidationMessage
+	}
+	return ""
+}
+
+func (x *SagaState) GetAbortReason() string {
+	if x != nil {
+		return x.AbortReason
+	}
+	return ""
+}
+
+func (x *SagaState) GetCreatedAtUnixSeconds() int64 {
+	if x != nil {
+		return x.CreatedAtUnixSeconds
+	}
+	return 0
+}
+
+func (x *SagaState) GetUpdatedAtUnixSeconds() int64 {
+	if x != nil {
+		return x.UpdatedAtUnixSeconds
+	}
+	return 0
+}
+
+type SagaResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Saga          *SagaState             `protobuf:"bytes,3,opt,name=saga,proto3" json:"saga,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SagaResponse) Reset() {
+	*x = SagaResponse{}
+	mi := &file_middleware_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SagaResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SagaResponse) ProtoMessage() {}
+
+func (x *SagaResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_middleware_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SagaResponse.ProtoReflect.Descriptor instead.
+func (*SagaResponse) Descriptor() ([]byte, []int) {
+	return file_middleware_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SagaResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *SagaResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *SagaResponse) GetSaga() *SagaState {
+	if x != nil {
+		return x.Saga
+	}
+	return nil
+}
+
 var File_middleware_proto protoreflect.FileDescriptor
 
 const file_middleware_proto_rawDesc = "" +
 	"\n" +
 	"\x10middleware.proto\x12\n" +
-	"middleware\"a\n" +
+	"middleware\"z\n" +
 	"\vReadRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1f\n" +
 	"\vresource_id\x18\x02 \x01(\tR\n" +
 	"resourceId\x12\x16\n" +
-	"\x06intent\x18\x03 \x01(\tR\x06intent\"V\n" +
+	"\x06intent\x18\x03 \x01(\tR\x06intent\x12\x17\n" +
+	"\asaga_id\x18\x04 \x01(\tR\x06sagaId\"V\n" +
 	"\fReadResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\tR\x04data\x12\x18\n" +
-	"\amessage\x18\x03 \x01(\tR\amessage\"\xd1\x01\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xea\x01\n" +
 	"\rCommitRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1f\n" +
 	"\vresource_id\x18\x02 \x01(\tR\n" +
 	"resourceId\x12!\n" +
 	"\faction_value\x18\x03 \x01(\x05R\vactionValue\x12-\n" +
 	"\x12accumulated_tokens\x18\x04 \x01(\x05R\x11accumulatedTokens\x122\n" +
-	"\x15inference_latency_sec\x18\x05 \x01(\x02R\x13inferenceLatencySec\"\x90\x01\n" +
+	"\x15inference_latency_sec\x18\x05 \x01(\x02R\x13inferenceLatencySec\x12\x17\n" +
+	"\asaga_id\x18\x06 \x01(\tR\x06sagaId\"\xb1\x01\n" +
 	"\x0eCommitResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12$\n" +
 	"\x0eis_rolled_back\x18\x02 \x01(\bR\fisRolledBack\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12$\n" +
-	"\x0esaved_cost_usd\x18\x04 \x01(\x02R\fsavedCostUsd2\xa6\x01\n" +
-	"\x15TransactionMiddleware\x12A\n" +
+	"\x0esaved_cost_usd\x18\x04 \x01(\x02R\fsavedCostUsd\x12\x1f\n" +
+	"\vsaga_status\x18\x05 \x01(\tR\n" +
+	"sagaStatus\"\xc2\x01\n" +
+	"\x10BeginSagaRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x12\n" +
+	"\x04goal\x18\x02 \x01(\tR\x04goal\x12C\n" +
+	"\acontext\x18\x03 \x03(\v2).middleware.BeginSagaRequest.ContextEntryR\acontext\x1a:\n" +
+	"\fContextEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xac\x01\n" +
+	"\x17RegisterSagaStepRequest\x12\x17\n" +
+	"\asaga_id\x18\x01 \x01(\tR\x06sagaId\x12\x17\n" +
+	"\astep_id\x18\x02 \x01(\tR\x06stepId\x12\x16\n" +
+	"\x06action\x18\x03 \x01(\tR\x06action\x12\x16\n" +
+	"\x06result\x18\x04 \x01(\tR\x06result\x12/\n" +
+	"\x13compensation_action\x18\x05 \x01(\tR\x12compensationAction\".\n" +
+	"\x13ValidateSagaRequest\x12\x17\n" +
+	"\asaga_id\x18\x01 \x01(\tR\x06sagaId\"C\n" +
+	"\x10AbortSagaRequest\x12\x17\n" +
+	"\asaga_id\x18\x01 \x01(\tR\x06sagaId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\".\n" +
+	"\x13GetSagaStateRequest\x12\x17\n" +
+	"\asaga_id\x18\x01 \x01(\tR\x06sagaId\"\x9c\x01\n" +
+	"\bSagaStep\x12\x17\n" +
+	"\astep_id\x18\x01 \x01(\tR\x06stepId\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x16\n" +
+	"\x06result\x18\x03 \x01(\tR\x06result\x12/\n" +
+	"\x13compensation_action\x18\x04 \x01(\tR\x12compensationAction\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06status\"\xd7\x02\n" +
+	"\tSagaState\x12\x17\n" +
+	"\asaga_id\x18\x01 \x01(\tR\x06sagaId\x12\x19\n" +
+	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x12\n" +
+	"\x04goal\x18\x03 \x01(\tR\x04goal\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12*\n" +
+	"\x05steps\x18\x05 \x03(\v2\x14.middleware.SagaStepR\x05steps\x12-\n" +
+	"\x12validation_message\x18\x06 \x01(\tR\x11validationMessage\x12!\n" +
+	"\fabort_reason\x18\a \x01(\tR\vabortReason\x125\n" +
+	"\x17created_at_unix_seconds\x18\b \x01(\x03R\x14createdAtUnixSeconds\x125\n" +
+	"\x17updated_at_unix_seconds\x18\t \x01(\x03R\x14updatedAtUnixSeconds\"m\n" +
+	"\fSagaResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12)\n" +
+	"\x04saga\x18\x03 \x01(\v2\x15.middleware.SagaStateR\x04saga2\x96\x04\n" +
+	"\x15TransactionMiddleware\x12C\n" +
+	"\tBeginSaga\x12\x1c.middleware.BeginSagaRequest\x1a\x18.middleware.SagaResponse\x12Q\n" +
+	"\x10RegisterSagaStep\x12#.middleware.RegisterSagaStepRequest\x1a\x18.middleware.SagaResponse\x12I\n" +
+	"\fValidateSaga\x12\x1f.middleware.ValidateSagaRequest\x1a\x18.middleware.SagaResponse\x12C\n" +
+	"\tAbortSaga\x12\x1c.middleware.AbortSagaRequest\x1a\x18.middleware.SagaResponse\x12F\n" +
+	"\fGetSagaState\x12\x1f.middleware.GetSagaStateRequest\x1a\x15.middleware.SagaState\x12A\n" +
 	"\fReadResource\x12\x17.middleware.ReadRequest\x1a\x18.middleware.ReadResponse\x12J\n" +
 	"\x11CommitTransaction\x12\x19.middleware.CommitRequest\x1a\x1a.middleware.CommitResponseB$Z\"agenic-middleware/middleware-go/pbb\x06proto3"
 
@@ -333,23 +926,45 @@ func file_middleware_proto_rawDescGZIP() []byte {
 	return file_middleware_proto_rawDescData
 }
 
-var file_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_middleware_proto_goTypes = []any{
-	(*ReadRequest)(nil),    // 0: middleware.ReadRequest
-	(*ReadResponse)(nil),   // 1: middleware.ReadResponse
-	(*CommitRequest)(nil),  // 2: middleware.CommitRequest
-	(*CommitResponse)(nil), // 3: middleware.CommitResponse
+	(*ReadRequest)(nil),             // 0: middleware.ReadRequest
+	(*ReadResponse)(nil),            // 1: middleware.ReadResponse
+	(*CommitRequest)(nil),           // 2: middleware.CommitRequest
+	(*CommitResponse)(nil),          // 3: middleware.CommitResponse
+	(*BeginSagaRequest)(nil),        // 4: middleware.BeginSagaRequest
+	(*RegisterSagaStepRequest)(nil), // 5: middleware.RegisterSagaStepRequest
+	(*ValidateSagaRequest)(nil),     // 6: middleware.ValidateSagaRequest
+	(*AbortSagaRequest)(nil),        // 7: middleware.AbortSagaRequest
+	(*GetSagaStateRequest)(nil),     // 8: middleware.GetSagaStateRequest
+	(*SagaStep)(nil),                // 9: middleware.SagaStep
+	(*SagaState)(nil),               // 10: middleware.SagaState
+	(*SagaResponse)(nil),            // 11: middleware.SagaResponse
+	nil,                             // 12: middleware.BeginSagaRequest.ContextEntry
 }
 var file_middleware_proto_depIdxs = []int32{
-	0, // 0: middleware.TransactionMiddleware.ReadResource:input_type -> middleware.ReadRequest
-	2, // 1: middleware.TransactionMiddleware.CommitTransaction:input_type -> middleware.CommitRequest
-	1, // 2: middleware.TransactionMiddleware.ReadResource:output_type -> middleware.ReadResponse
-	3, // 3: middleware.TransactionMiddleware.CommitTransaction:output_type -> middleware.CommitResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	12, // 0: middleware.BeginSagaRequest.context:type_name -> middleware.BeginSagaRequest.ContextEntry
+	9,  // 1: middleware.SagaState.steps:type_name -> middleware.SagaStep
+	10, // 2: middleware.SagaResponse.saga:type_name -> middleware.SagaState
+	4,  // 3: middleware.TransactionMiddleware.BeginSaga:input_type -> middleware.BeginSagaRequest
+	5,  // 4: middleware.TransactionMiddleware.RegisterSagaStep:input_type -> middleware.RegisterSagaStepRequest
+	6,  // 5: middleware.TransactionMiddleware.ValidateSaga:input_type -> middleware.ValidateSagaRequest
+	7,  // 6: middleware.TransactionMiddleware.AbortSaga:input_type -> middleware.AbortSagaRequest
+	8,  // 7: middleware.TransactionMiddleware.GetSagaState:input_type -> middleware.GetSagaStateRequest
+	0,  // 8: middleware.TransactionMiddleware.ReadResource:input_type -> middleware.ReadRequest
+	2,  // 9: middleware.TransactionMiddleware.CommitTransaction:input_type -> middleware.CommitRequest
+	11, // 10: middleware.TransactionMiddleware.BeginSaga:output_type -> middleware.SagaResponse
+	11, // 11: middleware.TransactionMiddleware.RegisterSagaStep:output_type -> middleware.SagaResponse
+	11, // 12: middleware.TransactionMiddleware.ValidateSaga:output_type -> middleware.SagaResponse
+	11, // 13: middleware.TransactionMiddleware.AbortSaga:output_type -> middleware.SagaResponse
+	10, // 14: middleware.TransactionMiddleware.GetSagaState:output_type -> middleware.SagaState
+	1,  // 15: middleware.TransactionMiddleware.ReadResource:output_type -> middleware.ReadResponse
+	3,  // 16: middleware.TransactionMiddleware.CommitTransaction:output_type -> middleware.CommitResponse
+	10, // [10:17] is the sub-list for method output_type
+	3,  // [3:10] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_middleware_proto_init() }
@@ -363,7 +978,7 @@ func file_middleware_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_middleware_proto_rawDesc), len(file_middleware_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

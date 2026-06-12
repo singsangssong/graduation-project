@@ -428,7 +428,17 @@
             <div class="metric">
               <div class="label">Rollback Count</div>
               <div class="value" id="rollbacks">0</div>
-              <div class="note">Saga-style rollback</div>
+              <div class="note">ATCC conflict rollback</div>
+            </div>
+            <div class="metric">
+              <div class="label">Validated Sagas</div>
+              <div class="value" id="validatedSagas">0</div>
+              <div class="note">commit 전 deterministic validation</div>
+            </div>
+            <div class="metric">
+              <div class="label">Compensation Actions</div>
+              <div class="value" id="compensationActions">0</div>
+              <div class="note">rollback 시 역순 보상 작업</div>
             </div>
           </div>
 
@@ -452,8 +462,17 @@
             </div>
             <div class="arrow">→</div>
             <div class="stage">
-              <strong>3. ATCC Commit</strong>
-              <p>agent가 소모한 token과 reasoning latency를 sunk cost로 환산해, 가장 큰 비용을 가진 요청을 승인한다.</p>
+              <strong>3. Saga Validation</strong>
+              <p>checkpoint가 존재하는지 검증하고, commit 전 workflow 상태를 VALIDATED로 전환한다.</p>
+              <div class="chip-row">
+                <span class="chip" id="sagaValidatedChip">validated -</span>
+                <span class="chip" id="sagaCompensatedChip">compensated -</span>
+              </div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <strong>4. ATCC Commit / Compensation</strong>
+              <p>가장 큰 sunk cost 요청을 승인하고, loser Saga는 완료된 checkpoint를 역순 compensation한다.</p>
               <div class="chip-row">
                 <span class="chip" id="atccWindow">window -</span>
                 <span class="chip" id="winnerChip">winner -</span>
@@ -564,10 +583,14 @@
           document.getElementById("savedReads").textContent = metrics.saved_db_reads;
           document.getElementById("commitRequests").textContent = metrics.commit_requests;
           document.getElementById("rollbacks").textContent = metrics.rolled_back_commits;
+          document.getElementById("validatedSagas").textContent = metrics.sagas_validated;
+          document.getElementById("compensationActions").textContent = metrics.compensation_actions;
           document.getElementById("savedCost").textContent = `$${metrics.total_saved_cost_usd.toFixed(2)} saved`;
           document.getElementById("readBatchChip").textContent = `batch ${metrics.last_read_batch_size || "-"}`;
           document.getElementById("savedReadChip").textContent = `saved ${metrics.saved_db_reads}`;
           document.getElementById("winnerChip").textContent = `winner ${metrics.last_winner_agent_id || "-"}`;
+          document.getElementById("sagaValidatedChip").textContent = `validated ${metrics.sagas_validated}`;
+          document.getElementById("sagaCompensatedChip").textContent = `compensated ${metrics.sagas_compensated}`;
           document.getElementById("qcfuseWindow").textContent = `${config.qcfuse_window_ms}ms`;
           document.getElementById("atccWindow").textContent = `${config.atcc_window_ms}ms`;
           document.getElementById("updatedAt").textContent = metrics.last_updated_unix_seconds

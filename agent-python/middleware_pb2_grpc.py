@@ -35,6 +35,31 @@ class TransactionMiddlewareStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.BeginSaga = channel.unary_unary(
+                '/middleware.TransactionMiddleware/BeginSaga',
+                request_serializer=middleware__pb2.BeginSagaRequest.SerializeToString,
+                response_deserializer=middleware__pb2.SagaResponse.FromString,
+                _registered_method=True)
+        self.RegisterSagaStep = channel.unary_unary(
+                '/middleware.TransactionMiddleware/RegisterSagaStep',
+                request_serializer=middleware__pb2.RegisterSagaStepRequest.SerializeToString,
+                response_deserializer=middleware__pb2.SagaResponse.FromString,
+                _registered_method=True)
+        self.ValidateSaga = channel.unary_unary(
+                '/middleware.TransactionMiddleware/ValidateSaga',
+                request_serializer=middleware__pb2.ValidateSagaRequest.SerializeToString,
+                response_deserializer=middleware__pb2.SagaResponse.FromString,
+                _registered_method=True)
+        self.AbortSaga = channel.unary_unary(
+                '/middleware.TransactionMiddleware/AbortSaga',
+                request_serializer=middleware__pb2.AbortSagaRequest.SerializeToString,
+                response_deserializer=middleware__pb2.SagaResponse.FromString,
+                _registered_method=True)
+        self.GetSagaState = channel.unary_unary(
+                '/middleware.TransactionMiddleware/GetSagaState',
+                request_serializer=middleware__pb2.GetSagaStateRequest.SerializeToString,
+                response_deserializer=middleware__pb2.SagaState.FromString,
+                _registered_method=True)
         self.ReadResource = channel.unary_unary(
                 '/middleware.TransactionMiddleware/ReadResource',
                 request_serializer=middleware__pb2.ReadRequest.SerializeToString,
@@ -50,6 +75,37 @@ class TransactionMiddlewareStub(object):
 class TransactionMiddlewareServicer(object):
     """미들웨어가 제공하는 서비스 정의
     """
+
+    def BeginSaga(self, request, context):
+        """SagaLLM-compatible workflow lifecycle
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RegisterSagaStep(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ValidateSaga(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AbortSaga(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetSagaState(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def ReadResource(self, request, context):
         """Phase 1: 자원 조회 (QCFuse 기반 캐시 융합 대상)
@@ -68,6 +124,31 @@ class TransactionMiddlewareServicer(object):
 
 def add_TransactionMiddlewareServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'BeginSaga': grpc.unary_unary_rpc_method_handler(
+                    servicer.BeginSaga,
+                    request_deserializer=middleware__pb2.BeginSagaRequest.FromString,
+                    response_serializer=middleware__pb2.SagaResponse.SerializeToString,
+            ),
+            'RegisterSagaStep': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterSagaStep,
+                    request_deserializer=middleware__pb2.RegisterSagaStepRequest.FromString,
+                    response_serializer=middleware__pb2.SagaResponse.SerializeToString,
+            ),
+            'ValidateSaga': grpc.unary_unary_rpc_method_handler(
+                    servicer.ValidateSaga,
+                    request_deserializer=middleware__pb2.ValidateSagaRequest.FromString,
+                    response_serializer=middleware__pb2.SagaResponse.SerializeToString,
+            ),
+            'AbortSaga': grpc.unary_unary_rpc_method_handler(
+                    servicer.AbortSaga,
+                    request_deserializer=middleware__pb2.AbortSagaRequest.FromString,
+                    response_serializer=middleware__pb2.SagaResponse.SerializeToString,
+            ),
+            'GetSagaState': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetSagaState,
+                    request_deserializer=middleware__pb2.GetSagaStateRequest.FromString,
+                    response_serializer=middleware__pb2.SagaState.SerializeToString,
+            ),
             'ReadResource': grpc.unary_unary_rpc_method_handler(
                     servicer.ReadResource,
                     request_deserializer=middleware__pb2.ReadRequest.FromString,
@@ -89,6 +170,141 @@ def add_TransactionMiddlewareServicer_to_server(servicer, server):
 class TransactionMiddleware(object):
     """미들웨어가 제공하는 서비스 정의
     """
+
+    @staticmethod
+    def BeginSaga(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/middleware.TransactionMiddleware/BeginSaga',
+            middleware__pb2.BeginSagaRequest.SerializeToString,
+            middleware__pb2.SagaResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RegisterSagaStep(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/middleware.TransactionMiddleware/RegisterSagaStep',
+            middleware__pb2.RegisterSagaStepRequest.SerializeToString,
+            middleware__pb2.SagaResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ValidateSaga(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/middleware.TransactionMiddleware/ValidateSaga',
+            middleware__pb2.ValidateSagaRequest.SerializeToString,
+            middleware__pb2.SagaResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AbortSaga(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/middleware.TransactionMiddleware/AbortSaga',
+            middleware__pb2.AbortSagaRequest.SerializeToString,
+            middleware__pb2.SagaResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetSagaState(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/middleware.TransactionMiddleware/GetSagaState',
+            middleware__pb2.GetSagaStateRequest.SerializeToString,
+            middleware__pb2.SagaState.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def ReadResource(request,

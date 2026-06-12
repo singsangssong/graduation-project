@@ -5,18 +5,21 @@ AI-agent transactions over shared resources.
 
 ## What This Project Shows
 
-The current prototype focuses on two middleware ideas:
+The current prototype combines three middleware ideas:
 
 - **QCFuse**: fuses many simultaneous read requests into one logical resource lookup.
 - **ATCC**: chooses the winning commit request by agent-side sunk cost, using token
   usage and inference latency as arbitration signals.
+- **SagaLLM-compatible lifecycle**: records workflow checkpoints, validates a saga
+  before commit, and compensates completed steps when ATCC rejects a transaction.
 
 The intended demo scenario is a high-contention ticket purchase:
 
 1. Many agents read the same limited resource.
 2. Agents spend different amounts of reasoning cost.
-3. Agents concurrently request a commit.
-4. Middleware approves the highest-cost request and rolls back the rest.
+3. Each agent registers a Saga checkpoint and passes deterministic validation.
+4. Agents concurrently request a commit.
+5. Middleware commits the highest-cost request and compensates the losing Sagas.
 
 ## Repository Structure
 
@@ -33,6 +36,7 @@ The intended demo scenario is a high-contention ticket purchase:
 │   ├── agent_client.py
 │   ├── middleware_pb2.py
 │   ├── middleware_pb2_grpc.py
+│   ├── saga_demo.py
 │   ├── stress_test.py
 │   └── stress_test_v2.py
 ├── requirements.txt
@@ -43,6 +47,8 @@ The intended demo scenario is a high-contention ticket purchase:
 
 - The Go middleware server compiles with the project-local Go cache command.
 - `proto/middleware.proto` is the canonical protobuf contract.
+- Saga lifecycle state is maintained by the Go `SagaCoordinator`.
+- QCFuse batches are isolated by resource ID and intent to avoid cross-resource fusion.
 - Python generated files under `agent-python/` are regenerated from
   `proto/middleware.proto`.
 - `agentic_scenario.py` is an optional AutoGen-based scenario and requires the
@@ -60,7 +66,7 @@ GOCACHE=/private/tmp/agenic-middleware-gocache go test ./...
 Python syntax:
 
 ```sh
-python3 -m py_compile agent-python/agent_client.py agent-python/stress_test.py agent-python/stress_test_v2.py agentic_scenario.py
+python3 -m py_compile agent-python/agent_client.py agent-python/deterministic_demo.py agent-python/saga_demo.py agent-python/stress_test.py agent-python/stress_test_v2.py agentic_scenario.py
 ```
 
 Python generated-file import check:
@@ -97,6 +103,39 @@ python3 deterministic_demo.py
 
 The demo writes JSON and CSV outputs to `outputs/demo-results/`.
 
+## Run The SagaLLM-Compatible Demo
+
+Start the middleware, then run:
+
+```sh
+cd agent-python
+python3 saga_demo.py
+```
+
+The demo executes this lifecycle for each concurrent agent:
+
+```text
+BeginSaga
+  -> RegisterSagaStep(checkpoint + compensation)
+  -> ReadResource(QCFuse)
+  -> ValidateSaga
+  -> CommitTransaction(ATCC)
+  -> COMMITTED or COMPENSATED
+```
+
+The result is written to `outputs/saga-demo-result.json`.
+
+## Saga API
+
+The canonical proto exposes:
+
+- `BeginSaga`: creates an agent workflow transaction.
+- `RegisterSagaStep`: records a completed checkpoint and its compensation action.
+- `ValidateSaga`: performs deterministic pre-commit validation.
+- `AbortSaga`: aborts the workflow and compensates completed steps in reverse order.
+- `GetSagaState`: returns the current workflow state and step statuses.
+- `CommitTransaction`: commits a validated Saga winner or compensates ATCC losers.
+
 ## Metrics Dashboard
 
 The Go server exposes a metrics API at:
@@ -112,6 +151,8 @@ Open `dashboard.html` in a browser while the Go server is running to watch:
 - winner agent
 - rollback count
 - total saved cost
+- Saga started/validated/compensated counts
+- compensation action count
 
 ## Next Milestones
 

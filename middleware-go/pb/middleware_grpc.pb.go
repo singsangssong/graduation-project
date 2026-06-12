@@ -19,6 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	TransactionMiddleware_BeginSaga_FullMethodName         = "/middleware.TransactionMiddleware/BeginSaga"
+	TransactionMiddleware_RegisterSagaStep_FullMethodName  = "/middleware.TransactionMiddleware/RegisterSagaStep"
+	TransactionMiddleware_ValidateSaga_FullMethodName      = "/middleware.TransactionMiddleware/ValidateSaga"
+	TransactionMiddleware_AbortSaga_FullMethodName         = "/middleware.TransactionMiddleware/AbortSaga"
+	TransactionMiddleware_GetSagaState_FullMethodName      = "/middleware.TransactionMiddleware/GetSagaState"
 	TransactionMiddleware_ReadResource_FullMethodName      = "/middleware.TransactionMiddleware/ReadResource"
 	TransactionMiddleware_CommitTransaction_FullMethodName = "/middleware.TransactionMiddleware/CommitTransaction"
 )
@@ -29,6 +34,12 @@ const (
 //
 // 미들웨어가 제공하는 서비스 정의
 type TransactionMiddlewareClient interface {
+	// SagaLLM-compatible workflow lifecycle
+	BeginSaga(ctx context.Context, in *BeginSagaRequest, opts ...grpc.CallOption) (*SagaResponse, error)
+	RegisterSagaStep(ctx context.Context, in *RegisterSagaStepRequest, opts ...grpc.CallOption) (*SagaResponse, error)
+	ValidateSaga(ctx context.Context, in *ValidateSagaRequest, opts ...grpc.CallOption) (*SagaResponse, error)
+	AbortSaga(ctx context.Context, in *AbortSagaRequest, opts ...grpc.CallOption) (*SagaResponse, error)
+	GetSagaState(ctx context.Context, in *GetSagaStateRequest, opts ...grpc.CallOption) (*SagaState, error)
 	// Phase 1: 자원 조회 (QCFuse 기반 캐시 융합 대상)
 	ReadResource(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error)
 	// Phase 3: 트랜잭션 커밋 요청 (ATCC 기반 비용 인지 제어 대상)
@@ -41,6 +52,56 @@ type transactionMiddlewareClient struct {
 
 func NewTransactionMiddlewareClient(cc grpc.ClientConnInterface) TransactionMiddlewareClient {
 	return &transactionMiddlewareClient{cc}
+}
+
+func (c *transactionMiddlewareClient) BeginSaga(ctx context.Context, in *BeginSagaRequest, opts ...grpc.CallOption) (*SagaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SagaResponse)
+	err := c.cc.Invoke(ctx, TransactionMiddleware_BeginSaga_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionMiddlewareClient) RegisterSagaStep(ctx context.Context, in *RegisterSagaStepRequest, opts ...grpc.CallOption) (*SagaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SagaResponse)
+	err := c.cc.Invoke(ctx, TransactionMiddleware_RegisterSagaStep_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionMiddlewareClient) ValidateSaga(ctx context.Context, in *ValidateSagaRequest, opts ...grpc.CallOption) (*SagaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SagaResponse)
+	err := c.cc.Invoke(ctx, TransactionMiddleware_ValidateSaga_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionMiddlewareClient) AbortSaga(ctx context.Context, in *AbortSagaRequest, opts ...grpc.CallOption) (*SagaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SagaResponse)
+	err := c.cc.Invoke(ctx, TransactionMiddleware_AbortSaga_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *transactionMiddlewareClient) GetSagaState(ctx context.Context, in *GetSagaStateRequest, opts ...grpc.CallOption) (*SagaState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SagaState)
+	err := c.cc.Invoke(ctx, TransactionMiddleware_GetSagaState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *transactionMiddlewareClient) ReadResource(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error) {
@@ -69,6 +130,12 @@ func (c *transactionMiddlewareClient) CommitTransaction(ctx context.Context, in 
 //
 // 미들웨어가 제공하는 서비스 정의
 type TransactionMiddlewareServer interface {
+	// SagaLLM-compatible workflow lifecycle
+	BeginSaga(context.Context, *BeginSagaRequest) (*SagaResponse, error)
+	RegisterSagaStep(context.Context, *RegisterSagaStepRequest) (*SagaResponse, error)
+	ValidateSaga(context.Context, *ValidateSagaRequest) (*SagaResponse, error)
+	AbortSaga(context.Context, *AbortSagaRequest) (*SagaResponse, error)
+	GetSagaState(context.Context, *GetSagaStateRequest) (*SagaState, error)
 	// Phase 1: 자원 조회 (QCFuse 기반 캐시 융합 대상)
 	ReadResource(context.Context, *ReadRequest) (*ReadResponse, error)
 	// Phase 3: 트랜잭션 커밋 요청 (ATCC 기반 비용 인지 제어 대상)
@@ -83,6 +150,21 @@ type TransactionMiddlewareServer interface {
 // pointer dereference when methods are called.
 type UnimplementedTransactionMiddlewareServer struct{}
 
+func (UnimplementedTransactionMiddlewareServer) BeginSaga(context.Context, *BeginSagaRequest) (*SagaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BeginSaga not implemented")
+}
+func (UnimplementedTransactionMiddlewareServer) RegisterSagaStep(context.Context, *RegisterSagaStepRequest) (*SagaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterSagaStep not implemented")
+}
+func (UnimplementedTransactionMiddlewareServer) ValidateSaga(context.Context, *ValidateSagaRequest) (*SagaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ValidateSaga not implemented")
+}
+func (UnimplementedTransactionMiddlewareServer) AbortSaga(context.Context, *AbortSagaRequest) (*SagaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AbortSaga not implemented")
+}
+func (UnimplementedTransactionMiddlewareServer) GetSagaState(context.Context, *GetSagaStateRequest) (*SagaState, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSagaState not implemented")
+}
 func (UnimplementedTransactionMiddlewareServer) ReadResource(context.Context, *ReadRequest) (*ReadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadResource not implemented")
 }
@@ -108,6 +190,96 @@ func RegisterTransactionMiddlewareServer(s grpc.ServiceRegistrar, srv Transactio
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&TransactionMiddleware_ServiceDesc, srv)
+}
+
+func _TransactionMiddleware_BeginSaga_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BeginSagaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionMiddlewareServer).BeginSaga(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionMiddleware_BeginSaga_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionMiddlewareServer).BeginSaga(ctx, req.(*BeginSagaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionMiddleware_RegisterSagaStep_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterSagaStepRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionMiddlewareServer).RegisterSagaStep(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionMiddleware_RegisterSagaStep_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionMiddlewareServer).RegisterSagaStep(ctx, req.(*RegisterSagaStepRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionMiddleware_ValidateSaga_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ValidateSagaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionMiddlewareServer).ValidateSaga(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionMiddleware_ValidateSaga_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionMiddlewareServer).ValidateSaga(ctx, req.(*ValidateSagaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionMiddleware_AbortSaga_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AbortSagaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionMiddlewareServer).AbortSaga(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionMiddleware_AbortSaga_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionMiddlewareServer).AbortSaga(ctx, req.(*AbortSagaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TransactionMiddleware_GetSagaState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSagaStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TransactionMiddlewareServer).GetSagaState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TransactionMiddleware_GetSagaState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TransactionMiddlewareServer).GetSagaState(ctx, req.(*GetSagaStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _TransactionMiddleware_ReadResource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -153,6 +325,26 @@ var TransactionMiddleware_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "middleware.TransactionMiddleware",
 	HandlerType: (*TransactionMiddlewareServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "BeginSaga",
+			Handler:    _TransactionMiddleware_BeginSaga_Handler,
+		},
+		{
+			MethodName: "RegisterSagaStep",
+			Handler:    _TransactionMiddleware_RegisterSagaStep_Handler,
+		},
+		{
+			MethodName: "ValidateSaga",
+			Handler:    _TransactionMiddleware_ValidateSaga_Handler,
+		},
+		{
+			MethodName: "AbortSaga",
+			Handler:    _TransactionMiddleware_AbortSaga_Handler,
+		},
+		{
+			MethodName: "GetSagaState",
+			Handler:    _TransactionMiddleware_GetSagaState_Handler,
+		},
 		{
 			MethodName: "ReadResource",
 			Handler:    _TransactionMiddleware_ReadResource_Handler,

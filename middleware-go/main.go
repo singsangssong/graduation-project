@@ -19,14 +19,16 @@ import (
 
 var (
 	// 티켓 재고는 단 1장!
-	ticketStock = 1
+	ticketStock   = 1
+	ticketStockMu sync.Mutex
 	// 에이전트들의 요청을 임시로 담아둘 대기열(Channel)
 	commitChan = make(chan CommitTask, 1000)
 	// 2. QCFuse(조회)용 채널 (추가됨!)
 	readChan = make(chan ReadTask, 1000)
 
-	appConfig = loadConfig()
-	metrics   = NewMiddlewareMetrics()
+	appConfig       = loadConfig()
+	metrics         = NewMiddlewareMetrics()
+	sagaCoordinator = NewSagaCoordinator()
 )
 
 type Config struct {
@@ -86,7 +88,7 @@ func getEnvFloat32(key string, defaultValue float32) float32 {
 }
 
 type MiddlewareMetrics struct {
-	mu                     sync.Mutex
+	mu                     *sync.Mutex
 	ReadRequests           int     `json:"read_requests"`
 	FusedReadBatches       int     `json:"fused_read_batches"`
 	FusedReadRequests      int     `json:"fused_read_requests"`
@@ -101,10 +103,16 @@ type MiddlewareMetrics struct {
 	LastWinnerAgentID      string  `json:"last_winner_agent_id"`
 	LastWinnerCostUsd      float32 `json:"last_winner_cost_usd"`
 	LastUpdatedUnixSeconds int64   `json:"last_updated_unix_seconds"`
+	SagasStarted           int     `json:"sagas_started"`
+	SagaStepsRegistered    int     `json:"saga_steps_registered"`
+	SagasValidated         int     `json:"sagas_validated"`
+	SagaValidationFailures int     `json:"saga_validation_failures"`
+	SagasCompensated       int     `json:"sagas_compensated"`
+	CompensationActions    int     `json:"compensation_actions"`
 }
 
 func NewMiddlewareMetrics() *MiddlewareMetrics {
-	return &MiddlewareMetrics{}
+	return &MiddlewareMetrics{mu: &sync.Mutex{}}
 }
 
 func (m *MiddlewareMetrics) Snapshot() MiddlewareMetrics {
@@ -130,6 +138,12 @@ func (m *MiddlewareMetrics) Reset() {
 	m.LastWinnerAgentID = ""
 	m.LastWinnerCostUsd = 0
 	m.LastUpdatedUnixSeconds = time.Now().Unix()
+	m.SagasStarted = 0
+	m.SagaStepsRegistered = 0
+	m.SagasValidated = 0
+	m.SagaValidationFailures = 0
+	m.SagasCompensated = 0
+	m.CompensationActions = 0
 }
 
 func (m *MiddlewareMetrics) RecordReadRequest() {
@@ -180,6 +194,42 @@ func (m *MiddlewareMetrics) RecordRolledBackCommit(savedCost float32) {
 	defer m.mu.Unlock()
 	m.RolledBackCommits++
 	m.TotalSavedCostUsd += savedCost
+	m.LastUpdatedUnixSeconds = time.Now().Unix()
+}
+
+func (m *MiddlewareMetrics) RecordSagaStarted() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SagasStarted++
+	m.LastUpdatedUnixSeconds = time.Now().Unix()
+}
+
+func (m *MiddlewareMetrics) RecordSagaStep() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SagaStepsRegistered++
+	m.LastUpdatedUnixSeconds = time.Now().Unix()
+}
+
+func (m *MiddlewareMetrics) RecordSagaValidated() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SagasValidated++
+	m.LastUpdatedUnixSeconds = time.Now().Unix()
+}
+
+func (m *MiddlewareMetrics) RecordSagaValidationFailure() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SagaValidationFailures++
+	m.LastUpdatedUnixSeconds = time.Now().Unix()
+}
+
+func (m *MiddlewareMetrics) RecordSagaCompensated(actions int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SagasCompensated++
+	m.CompensationActions += actions
 	m.LastUpdatedUnixSeconds = time.Now().Unix()
 }
 
@@ -237,22 +287,19 @@ func QCFuseScheduler() {
 				continue
 			}
 
-			// 0.1초 동안 모인 요청들을 1개의 DB I/O로 융합 처리!
-			metrics.RecordFusedReadBatch(len(batch))
-			log.Printf("==================================================")
-			log.Printf("🔍 [QCFuse 작동] %d명의 조회 요청을 1회의 DB I/O로 병합 처리!", len(batch))
-			log.Printf("==================================================\n")
+			// 서로 다른 resource/intent 요청은 섞지 않고 key별로 fusion한다.
+			for key, tasks := range groupReadTasksByResource(batch) {
+				metrics.RecordFusedReadBatch(len(tasks))
+				log.Printf("🔍 [QCFuse 작동] key=%s, %d개 요청을 1회의 logical DB I/O로 병합", key, len(tasks))
 
-			// 단 1회의 DB 조회 결과라고 가정
-			fusedResponse := &pb.ReadResponse{
-				Success: true,
-				Data:    "재고 1장 남음",
-				Message: "QCFuse 시맨틱 캐시 적중",
-			}
-
-			// 모인 수십/수백 명의 에이전트에게 동시에 결과 브로드캐스트 (Broadcast)
-			for _, task := range batch {
-				task.Res <- fusedResponse
+				fusedResponse := &pb.ReadResponse{
+					Success: true,
+					Data:    tasks[0].Req.GetResourceId() + " 재고 1장 남음",
+					Message: "QCFuse resource-aware read fusion 적중",
+				}
+				for _, task := range tasks {
+					task.Res <- fusedResponse
+				}
 			}
 
 			// 큐 초기화
@@ -263,6 +310,19 @@ func QCFuseScheduler() {
 
 // [Phase 3] 커밋 요청 수신부
 func (s *server) CommitTransaction(ctx context.Context, req *pb.CommitRequest) (*pb.CommitResponse, error) {
+	if req.GetSagaId() != "" {
+		saga, err := sagaCoordinator.Get(req.GetSagaId())
+		if err != nil {
+			return &pb.CommitResponse{Success: false, IsRolledBack: true, Message: err.Error(), SagaStatus: "NOT_FOUND"}, nil
+		}
+		if saga.Status != SagaStatusValidated {
+			return &pb.CommitResponse{
+				Success: false, IsRolledBack: true,
+				Message: "Saga validation이 commit 전에 필요합니다", SagaStatus: saga.Status,
+			}, nil
+		}
+	}
+
 	resChan := make(chan *pb.CommitResponse)
 	metrics.RecordCommitRequest()
 
@@ -293,8 +353,10 @@ func ATCCScheduler() {
 			}
 			metrics.RecordCommitBatch(len(batch))
 
+			ticketStockMu.Lock()
 			// 이미 누군가 티켓을 사갔다면(재고 0), 무조건 롤백 처리
 			if ticketStock <= 0 {
+				ticketStockMu.Unlock()
 				for _, task := range batch {
 					metrics.RecordRolledBackCommit(0)
 					task.Res <- &pb.CommitResponse{
@@ -324,24 +386,44 @@ func ATCCScheduler() {
 			// 🏆 2. 1등 에이전트 승인 (재고 차감)
 			winner := batch[0]
 			ticketStock--
+			ticketStockMu.Unlock()
 			winnerCost := calculateSunkCost(winner.Req)
+			winnerSagaStatus := ""
+			if winner.Req.GetSagaId() != "" {
+				saga, err := sagaCoordinator.Commit(winner.Req.GetSagaId())
+				if err != nil {
+					log.Printf("[Saga commit 실패] %v", err)
+				} else {
+					winnerSagaStatus = saga.Status
+				}
+			}
 			metrics.RecordApprovedCommit(winner.Req.GetAgentId(), winnerCost)
 			log.Printf("==================================================")
 			log.Printf("🏆 [ATCC 승인] %s (투자 비용: $%.2f) - 재고 획득!", winner.Req.GetAgentId(), winnerCost)
 
 			winner.Res <- &pb.CommitResponse{
-				Success: true, IsRolledBack: false, Message: "최고 비용 에이전트 커밋 성공",
+				Success: true, IsRolledBack: false, Message: "최고 비용 에이전트 커밋 성공", SagaStatus: winnerSagaStatus,
 			}
 
 			// ⛔ 3. 나머지 에이전트 롤백 처리 및 방어 비용 산출
 			for i := 1; i < len(batch); i++ {
 				loser := batch[i]
 				savedCost := calculateSunkCost(loser.Req)
+				loserSagaStatus := ""
+				if loser.Req.GetSagaId() != "" {
+					saga, err := sagaCoordinator.Abort(loser.Req.GetSagaId(), "ATCC commit arbitration conflict")
+					if err != nil {
+						log.Printf("[Saga compensation 실패] %v", err)
+					} else {
+						loserSagaStatus = saga.Status
+						metrics.RecordSagaCompensated(len(saga.CompensationLog))
+					}
+				}
 				metrics.RecordRolledBackCommit(savedCost)
 				log.Printf("⛔ [ATCC 롤백] %s (방어한 손실 비용: $%.2f)", loser.Req.GetAgentId(), savedCost)
 
 				loser.Res <- &pb.CommitResponse{
-					Success: false, IsRolledBack: true, Message: "경합 패배", SavedCostUsd: savedCost,
+					Success: false, IsRolledBack: true, Message: "경합 패배 및 Saga compensation", SavedCostUsd: savedCost, SagaStatus: loserSagaStatus,
 				}
 			}
 			log.Printf("==================================================\n")
@@ -349,9 +431,24 @@ func ATCCScheduler() {
 			// 큐 초기화 (다음 3초를 위해)
 			batch = nil
 
+			ticketStockMu.Lock()
 			ticketStock = appConfig.InitialTicketStock
+			ticketStockMu.Unlock()
 		}
 	}
+}
+
+func readFusionKey(req *pb.ReadRequest) string {
+	return req.GetResourceId() + "\x00" + req.GetIntent()
+}
+
+func groupReadTasksByResource(tasks []ReadTask) map[string][]ReadTask {
+	groups := make(map[string][]ReadTask)
+	for _, task := range tasks {
+		key := readFusionKey(task.Req)
+		groups[key] = append(groups[key], task)
+	}
+	return groups
 }
 
 // 💰 매몰 비용 계산 공식 (토큰 가중치 + 시간 가중치)
@@ -393,7 +490,10 @@ func StartMetricsServer(addr string) {
 			return
 		}
 		metrics.Reset()
+		sagaCoordinator.Reset()
+		ticketStockMu.Lock()
 		ticketStock = appConfig.InitialTicketStock
+		ticketStockMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "reset"})
 	})
@@ -405,7 +505,9 @@ func StartMetricsServer(addr string) {
 }
 
 func main() {
+	ticketStockMu.Lock()
 	ticketStock = appConfig.InitialTicketStock
+	ticketStockMu.Unlock()
 	// 1. 두 개의 핵심 두뇌(스케줄러)를 백그라운드 엔진으로 가동!
 	go QCFuseScheduler()
 	go ATCCScheduler()

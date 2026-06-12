@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10middleware.proto\x12\nmiddleware\"D\n\x0bReadRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x13\n\x0bresource_id\x18\x02 \x01(\t\x12\x0e\n\x06intent\x18\x03 \x01(\t\">\n\x0cReadResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x87\x01\n\rCommitRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x13\n\x0bresource_id\x18\x02 \x01(\t\x12\x14\n\x0c\x61\x63tion_value\x18\x03 \x01(\x05\x12\x1a\n\x12\x61\x63\x63umulated_tokens\x18\x04 \x01(\x05\x12\x1d\n\x15inference_latency_sec\x18\x05 \x01(\x02\"b\n\x0e\x43ommitResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x16\n\x0eis_rolled_back\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x16\n\x0esaved_cost_usd\x18\x04 \x01(\x02\x32\xa6\x01\n\x15TransactionMiddleware\x12\x41\n\x0cReadResource\x12\x17.middleware.ReadRequest\x1a\x18.middleware.ReadResponse\x12J\n\x11\x43ommitTransaction\x12\x19.middleware.CommitRequest\x1a\x1a.middleware.CommitResponseB$Z\"agenic-middleware/middleware-go/pbb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10middleware.proto\x12\nmiddleware\"U\n\x0bReadRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x13\n\x0bresource_id\x18\x02 \x01(\t\x12\x0e\n\x06intent\x18\x03 \x01(\t\x12\x0f\n\x07saga_id\x18\x04 \x01(\t\">\n\x0cReadResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\t\x12\x0f\n\x07message\x18\x03 \x01(\t\"\x98\x01\n\rCommitRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x13\n\x0bresource_id\x18\x02 \x01(\t\x12\x14\n\x0c\x61\x63tion_value\x18\x03 \x01(\x05\x12\x1a\n\x12\x61\x63\x63umulated_tokens\x18\x04 \x01(\x05\x12\x1d\n\x15inference_latency_sec\x18\x05 \x01(\x02\x12\x0f\n\x07saga_id\x18\x06 \x01(\t\"w\n\x0e\x43ommitResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x16\n\x0eis_rolled_back\x18\x02 \x01(\x08\x12\x0f\n\x07message\x18\x03 \x01(\t\x12\x16\n\x0esaved_cost_usd\x18\x04 \x01(\x02\x12\x13\n\x0bsaga_status\x18\x05 \x01(\t\"\x9e\x01\n\x10\x42\x65ginSagaRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x0c\n\x04goal\x18\x02 \x01(\t\x12:\n\x07\x63ontext\x18\x03 \x03(\x0b\x32).middleware.BeginSagaRequest.ContextEntry\x1a.\n\x0c\x43ontextEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"x\n\x17RegisterSagaStepRequest\x12\x0f\n\x07saga_id\x18\x01 \x01(\t\x12\x0f\n\x07step_id\x18\x02 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x03 \x01(\t\x12\x0e\n\x06result\x18\x04 \x01(\t\x12\x1b\n\x13\x63ompensation_action\x18\x05 \x01(\t\"&\n\x13ValidateSagaRequest\x12\x0f\n\x07saga_id\x18\x01 \x01(\t\"3\n\x10\x41\x62ortSagaRequest\x12\x0f\n\x07saga_id\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\t\"&\n\x13GetSagaStateRequest\x12\x0f\n\x07saga_id\x18\x01 \x01(\t\"h\n\x08SagaStep\x12\x0f\n\x07step_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x0e\n\x06result\x18\x03 \x01(\t\x12\x1b\n\x13\x63ompensation_action\x18\x04 \x01(\t\x12\x0e\n\x06status\x18\x05 \x01(\t\"\xe5\x01\n\tSagaState\x12\x0f\n\x07saga_id\x18\x01 \x01(\t\x12\x10\n\x08\x61gent_id\x18\x02 \x01(\t\x12\x0c\n\x04goal\x18\x03 \x01(\t\x12\x0e\n\x06status\x18\x04 \x01(\t\x12#\n\x05steps\x18\x05 \x03(\x0b\x32\x14.middleware.SagaStep\x12\x1a\n\x12validation_message\x18\x06 \x01(\t\x12\x14\n\x0c\x61\x62ort_reason\x18\x07 \x01(\t\x12\x1f\n\x17\x63reated_at_unix_seconds\x18\x08 \x01(\x03\x12\x1f\n\x17updated_at_unix_seconds\x18\t \x01(\x03\"U\n\x0cSagaResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\x12#\n\x04saga\x18\x03 \x01(\x0b\x32\x15.middleware.SagaState2\x96\x04\n\x15TransactionMiddleware\x12\x43\n\tBeginSaga\x12\x1c.middleware.BeginSagaRequest\x1a\x18.middleware.SagaResponse\x12Q\n\x10RegisterSagaStep\x12#.middleware.RegisterSagaStepRequest\x1a\x18.middleware.SagaResponse\x12I\n\x0cValidateSaga\x12\x1f.middleware.ValidateSagaRequest\x1a\x18.middleware.SagaResponse\x12\x43\n\tAbortSaga\x12\x1c.middleware.AbortSagaRequest\x1a\x18.middleware.SagaResponse\x12\x46\n\x0cGetSagaState\x12\x1f.middleware.GetSagaStateRequest\x1a\x15.middleware.SagaState\x12\x41\n\x0cReadResource\x12\x17.middleware.ReadRequest\x1a\x18.middleware.ReadResponse\x12J\n\x11\x43ommitTransaction\x12\x19.middleware.CommitRequest\x1a\x1a.middleware.CommitResponseB$Z\"agenic-middleware/middleware-go/pbb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,14 +32,34 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'middleware_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z\"agenic-middleware/middleware-go/pb'
+  _globals['_BEGINSAGAREQUEST_CONTEXTENTRY']._loaded_options = None
+  _globals['_BEGINSAGAREQUEST_CONTEXTENTRY']._serialized_options = b'8\001'
   _globals['_READREQUEST']._serialized_start=32
-  _globals['_READREQUEST']._serialized_end=100
-  _globals['_READRESPONSE']._serialized_start=102
-  _globals['_READRESPONSE']._serialized_end=164
-  _globals['_COMMITREQUEST']._serialized_start=167
-  _globals['_COMMITREQUEST']._serialized_end=302
-  _globals['_COMMITRESPONSE']._serialized_start=304
-  _globals['_COMMITRESPONSE']._serialized_end=402
-  _globals['_TRANSACTIONMIDDLEWARE']._serialized_start=405
-  _globals['_TRANSACTIONMIDDLEWARE']._serialized_end=571
+  _globals['_READREQUEST']._serialized_end=117
+  _globals['_READRESPONSE']._serialized_start=119
+  _globals['_READRESPONSE']._serialized_end=181
+  _globals['_COMMITREQUEST']._serialized_start=184
+  _globals['_COMMITREQUEST']._serialized_end=336
+  _globals['_COMMITRESPONSE']._serialized_start=338
+  _globals['_COMMITRESPONSE']._serialized_end=457
+  _globals['_BEGINSAGAREQUEST']._serialized_start=460
+  _globals['_BEGINSAGAREQUEST']._serialized_end=618
+  _globals['_BEGINSAGAREQUEST_CONTEXTENTRY']._serialized_start=572
+  _globals['_BEGINSAGAREQUEST_CONTEXTENTRY']._serialized_end=618
+  _globals['_REGISTERSAGASTEPREQUEST']._serialized_start=620
+  _globals['_REGISTERSAGASTEPREQUEST']._serialized_end=740
+  _globals['_VALIDATESAGAREQUEST']._serialized_start=742
+  _globals['_VALIDATESAGAREQUEST']._serialized_end=780
+  _globals['_ABORTSAGAREQUEST']._serialized_start=782
+  _globals['_ABORTSAGAREQUEST']._serialized_end=833
+  _globals['_GETSAGASTATEREQUEST']._serialized_start=835
+  _globals['_GETSAGASTATEREQUEST']._serialized_end=873
+  _globals['_SAGASTEP']._serialized_start=875
+  _globals['_SAGASTEP']._serialized_end=979
+  _globals['_SAGASTATE']._serialized_start=982
+  _globals['_SAGASTATE']._serialized_end=1211
+  _globals['_SAGARESPONSE']._serialized_start=1213
+  _globals['_SAGARESPONSE']._serialized_end=1298
+  _globals['_TRANSACTIONMIDDLEWARE']._serialized_start=1301
+  _globals['_TRANSACTIONMIDDLEWARE']._serialized_end=1835
 # @@protoc_insertion_point(module_scope)

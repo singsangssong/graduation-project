@@ -7,6 +7,13 @@ option go_package = "agenic-middleware/middleware-go/pb";
 
 // 미들웨어가 제공하는 서비스 정의
 service TransactionMiddleware {
+  // SagaLLM-compatible workflow lifecycle
+  rpc BeginSaga (BeginSagaRequest) returns (SagaResponse);
+  rpc RegisterSagaStep (RegisterSagaStepRequest) returns (SagaResponse);
+  rpc ValidateSaga (ValidateSagaRequest) returns (SagaResponse);
+  rpc AbortSaga (AbortSagaRequest) returns (SagaResponse);
+  rpc GetSagaState (GetSagaStateRequest) returns (SagaState);
+
   // Phase 1: 자원 조회 (QCFuse 기반 캐시 융합 대상)
   rpc ReadResource (ReadRequest) returns (ReadResponse);
   
@@ -19,6 +26,7 @@ message ReadRequest {
   string agent_id = 1;      // 요청하는 에이전트의 고유 ID
   string resource_id = 2;   // 조회할 자원 ID (예: "flight_ticket_A")
   string intent = 3;        // 조회의 목적 문맥 (QCFuse의 앵커 추출에 활용될 수 있음)
+  string saga_id = 4;       // SagaLLM workflow와 연결되는 saga ID
 }
 
 // 2. 조회 응답 메시지 (미들웨어 -> 에이전트)
@@ -37,6 +45,7 @@ message CommitRequest {
   // ATCC 매몰 비용(Sunk Cost) 산정을 위한 데이터
   int32 accumulated_tokens = 4;   // 에이전트가 현재까지 소모한 누적 LLM 토큰 수
   float inference_latency_sec = 5; // LLM 추론에 소요된 대기 시간(초)
+  string saga_id = 6;              // commit 결과와 연결할 saga ID
 }
 
 // 4. 커밋 응답 메시지 (미들웨어 -> 에이전트)
@@ -45,4 +54,58 @@ message CommitResponse {
   bool is_rolled_back = 2;        // Saga 코디네이터에 의해 롤백되었는지 여부
   string message = 3;             // 원인 메시지 (예: "비용이 낮아 롤백됨")
   float saved_cost_usd = 4;       // 방어해 낸 매몰 비용 가치 (정량적 지표용)
+  string saga_status = 5;         // commit 이후 saga 상태
+}
+
+message BeginSagaRequest {
+  string agent_id = 1;
+  string goal = 2;
+  map<string, string> context = 3;
+}
+
+message RegisterSagaStepRequest {
+  string saga_id = 1;
+  string step_id = 2;
+  string action = 3;
+  string result = 4;
+  string compensation_action = 5;
+}
+
+message ValidateSagaRequest {
+  string saga_id = 1;
+}
+
+message AbortSagaRequest {
+  string saga_id = 1;
+  string reason = 2;
+}
+
+message GetSagaStateRequest {
+  string saga_id = 1;
+}
+
+message SagaStep {
+  string step_id = 1;
+  string action = 2;
+  string result = 3;
+  string compensation_action = 4;
+  string status = 5;
+}
+
+message SagaState {
+  string saga_id = 1;
+  string agent_id = 2;
+  string goal = 3;
+  string status = 4;
+  repeated SagaStep steps = 5;
+  string validation_message = 6;
+  string abort_reason = 7;
+  int64 created_at_unix_seconds = 8;
+  int64 updated_at_unix_seconds = 9;
+}
+
+message SagaResponse {
+  bool success = 1;
+  string message = 2;
+  SagaState saga = 3;
 }
