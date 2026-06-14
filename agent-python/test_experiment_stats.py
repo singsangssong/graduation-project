@@ -1,6 +1,7 @@
 import unittest
 
 from experiment_stats import percentile, reliability_summary, render_html, summarize_runs
+from experiment_runner import make_agents
 
 
 class ExperimentStatsTest(unittest.TestCase):
@@ -60,6 +61,12 @@ class ExperimentStatsTest(unittest.TestCase):
         self.assertIn("Quantitative Experiment Report", html)
         self.assertIn("full", html)
         self.assertIn("restart recovery", html)
+
+    def test_large_workload_commit_stagger_fits_one_atcc_window(self):
+        agents = make_agents(200, seed=1)
+
+        self.assertLessEqual(max(agent["commit_delay"] for agent in agents), 0.01)
+        self.assertEqual(max(agents, key=lambda agent: agent["tokens"])["agent_id"], "Agent-199")
 
 
 if __name__ == "__main__":

@@ -319,12 +319,16 @@ func QCFuseScheduler() {
 			// 서로 다른 resource/intent 요청은 섞지 않고 key별로 fusion한다.
 			for key, tasks := range groupReadTasksForMode(batch, appConfig.ExperimentMode) {
 				metrics.RecordFusedReadBatch(len(tasks))
-				log.Printf("🔍 [QCFuse 작동] key=%s, %d개 요청을 1회의 logical DB I/O로 병합", key, len(tasks))
+				if appConfig.ExperimentMode == ExperimentModeBaseline {
+					log.Printf("🔍 [Baseline read] key=%s, 개별 logical DB I/O 수행", key)
+				} else {
+					log.Printf("🔍 [QCFuse 작동] key=%s, %d개 요청을 1회의 logical DB I/O로 병합", key, len(tasks))
+				}
 
 				fusedResponse := &pb.ReadResponse{
 					Success: true,
 					Data:    tasks[0].Req.GetResourceId() + " 재고 1장 남음",
-					Message: "QCFuse resource-aware read fusion 적중",
+					Message: readPolicyMessage(appConfig.ExperimentMode),
 				}
 				for _, task := range tasks {
 					task.Res <- fusedResponse
@@ -401,7 +405,7 @@ func ATCCScheduler() {
 
 			// 📊 [추가된 코드] Top 10 리더보드 출력
 			log.Printf("==================================================")
-			log.Printf("📊 [ATCC 경합 리더보드 - 총 %d명 경합]", len(batch))
+			log.Printf("📊 [%s 커밋 리더보드 - 총 %d명 경합]", commitPolicyLabel(appConfig.ExperimentMode), len(batch))
 			limit := len(batch)
 			if limit > 10 {
 				limit = 10 // 상위 10명만 출력
@@ -490,6 +494,20 @@ func groupReadTasksForMode(tasks []ReadTask, mode string) map[string][]ReadTask 
 		groups[key] = []ReadTask{task}
 	}
 	return groups
+}
+
+func readPolicyMessage(mode string) string {
+	if mode == ExperimentModeBaseline {
+		return "Baseline individual logical read"
+	}
+	return "QCFuse resource-aware read fusion 적중"
+}
+
+func commitPolicyLabel(mode string) string {
+	if mode == ExperimentModeFull {
+		return "ATCC 비용 인지"
+	}
+	return "도착순"
 }
 
 // 💰 매몰 비용 계산 공식 (토큰 가중치 + 시간 가중치)

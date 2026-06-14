@@ -6,6 +6,7 @@ import random
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -120,7 +121,7 @@ def make_agents(agent_count, seed):
                 "agent_id": f"Agent-{index:03d}",
                 "tokens": rng.randint(200, 5000),
                 "latency": round(rng.uniform(0.5, 10.0), 3),
-                "commit_delay": index * 0.0005,
+                "commit_delay": index * 0.00005,
             }
         )
     agents[-1]["tokens"] = 6000
@@ -132,7 +133,7 @@ def sunk_cost(agent):
     return agent["tokens"] * 0.002 + agent["latency"] * 0.5
 
 
-def run_scalability_agent(agent, grpc_addr):
+def run_scalability_agent(agent, grpc_addr, commit_barrier):
     started = time.perf_counter()
     channel = grpc.insecure_channel(grpc_addr)
     stub = middleware_pb2_grpc.TransactionMiddlewareStub(channel)
@@ -145,6 +146,7 @@ def run_scalability_agent(agent, grpc_addr):
             ),
             timeout=5,
         )
+        commit_barrier.wait(timeout=10)
         time.sleep(agent["commit_delay"])
         response = stub.CommitTransaction(
             middleware_pb2.CommitRequest(
@@ -182,9 +184,13 @@ def run_scalability_agent(agent, grpc_addr):
 def execute_run(server, mode, agent_count, repetition):
     post_json(f"{server.metrics_url}/reset")
     agents = make_agents(agent_count, seed=agent_count * 1000 + repetition)
+    commit_barrier = threading.Barrier(agent_count)
     started = time.perf_counter()
     with ThreadPoolExecutor(max_workers=agent_count) as executor:
-        futures = [executor.submit(run_scalability_agent, agent, server.grpc_addr) for agent in agents]
+        futures = [
+            executor.submit(run_scalability_agent, agent, server.grpc_addr, commit_barrier)
+            for agent in agents
+        ]
         results = [future.result() for future in as_completed(futures)]
     elapsed = time.perf_counter() - started
     metrics = fetch_json(f"{server.metrics_url}/metrics")["metrics"]
