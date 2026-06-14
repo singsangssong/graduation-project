@@ -39,6 +39,7 @@ type Config struct {
 	TokenCostWeight    float32 `json:"token_cost_weight"`
 	LatencyCostWeight  float32 `json:"latency_cost_weight"`
 	InitialTicketStock int     `json:"initial_ticket_stock"`
+	SagaDBPath         string  `json:"saga_db_path"`
 }
 
 func loadConfig() Config {
@@ -50,6 +51,7 @@ func loadConfig() Config {
 		TokenCostWeight:    getEnvFloat32("ATCC_TOKEN_WEIGHT", 0.002),
 		LatencyCostWeight:  getEnvFloat32("ATCC_LATENCY_WEIGHT", 0.5),
 		InitialTicketStock: getEnvInt("TICKET_STOCK", 1),
+		SagaDBPath:         getEnv("SAGA_DB_PATH", "data/middleware.db"),
 	}
 }
 
@@ -497,6 +499,27 @@ func StartMetricsServer(addr string) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "reset"})
 	})
+	mux.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		events, err := sagaCoordinator.Events(r.URL.Query().Get("saga_id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(events)
+	})
+	mux.HandleFunc("/resource", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		resourceID := r.URL.Query().Get("resource_id")
+		stock, err := sagaCoordinator.ResourceStock(resourceID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"resource_id": resourceID, "available_stock": stock})
+	})
 
 	log.Printf("📈 메트릭 서버가 %s 포트에서 실행 중입니다...", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
@@ -505,6 +528,13 @@ func StartMetricsServer(addr string) {
 }
 
 func main() {
+	persistentCoordinator, err := NewPersistentSagaCoordinator(appConfig.SagaDBPath, appConfig.InitialTicketStock)
+	if err != nil {
+		log.Fatalf("Saga SQLite store 초기화 실패: %v", err)
+	}
+	sagaCoordinator = persistentCoordinator
+	defer sagaCoordinator.Close()
+
 	ticketStockMu.Lock()
 	ticketStock = appConfig.InitialTicketStock
 	ticketStockMu.Unlock()

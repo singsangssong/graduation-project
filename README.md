@@ -108,6 +108,11 @@ The demo writes JSON and CSV outputs to `outputs/demo-results/`.
 Start the middleware, then run:
 
 ```sh
+cd middleware-go
+TICKET_STOCK=3 SAGA_DB_PATH=data/middleware.db \
+  GOCACHE=/private/tmp/agenic-middleware-gocache go run .
+
+# another terminal
 cd agent-python
 python3 saga_demo.py
 ```
@@ -125,6 +130,14 @@ BeginSaga
 
 The result is written to `outputs/saga-demo-result.json`.
 
+Stop and restart the middleware with the same `SAGA_DB_PATH`, then verify
+durable recovery:
+
+```sh
+cd agent-python
+python3 recovery_check.py
+```
+
 ## Saga API
 
 The canonical proto exposes:
@@ -135,6 +148,10 @@ The canonical proto exposes:
 - `AbortSaga`: aborts the workflow and compensates completed steps in reverse order.
 - `GetSagaState`: returns the current workflow state and step statuses.
 - `CommitTransaction`: commits a validated Saga winner or compensates ATCC losers.
+
+The Go server persists Saga state, steps, events, resource stock, and reservations
+to SQLite. The `/events?saga_id=...` and `/resource?resource_id=...` HTTP endpoints
+expose the durable event timeline and current resource state.
 
 ## Metrics Dashboard
 

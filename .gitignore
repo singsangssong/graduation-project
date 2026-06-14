@@ -35,3 +35,8 @@ outputs/
 deliverables/final-presentation/
 scripts/build_final_presentation.js
 scripts/export_final_presentation_keynote.applescript
+
+# Local persistent middleware data
+middleware-go/data/
+*.db-shm
+*.db-wal

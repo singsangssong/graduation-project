@@ -90,22 +90,47 @@ The `/metrics` endpoint now reports:
 
 These metrics are displayed by `dashboard.html`.
 
+## Persistent Store And Compensation
+
+The middleware now persists the following SQLite tables:
+
+- `sagas`: workflow state and validation/abort metadata.
+- `saga_steps`: ordered checkpoints and compensation actions.
+- `saga_events`: append-only workflow transition timeline.
+- `resources`: durable shared-resource stock.
+- `resource_reservations`: idempotent Saga reservation state.
+
+The built-in typed resource handlers support:
+
+```text
+reserve <resource_id>
+release <resource_id>
+```
+
+Registering a reserve step decreases durable stock. When ATCC rejects the Saga,
+the reverse compensation handler releases the reservation and restores stock.
+Duplicate release attempts are idempotent and do not restore stock twice.
+
+Unsupported compensation handlers move the Saga to `COMPENSATION_FAILED` and
+record a failure event instead of silently succeeding.
+
+After middleware restart, `SQLiteSagaStore` reconstructs Saga records and steps.
+The event timeline remains queryable through `/events`.
+
 ## Current Limitations
 
-- Saga state is stored in memory and is not recovered after middleware restart.
-- Compensation actions are recorded and transitioned, but external compensation
-  APIs are not executed.
+- Built-in compensation execution currently supports ticket-style
+  `reserve/release` resource handlers. External API handlers are future work.
 - Validation is deterministic; an independent LLM validation agent is not yet
   connected.
-- The resource layer still uses the controlled ticket-stock simulation.
 - ATCC uses a simplified token/latency score instead of the paper's full
   adaptive/RL concurrency-control policy.
 
 ## Next Production-Oriented Extensions
 
-1. Persist Saga state and steps to PostgreSQL.
-2. Add idempotency keys to checkpoint and compensation execution.
-3. Execute typed compensation handlers against real external resources.
+1. Replace SQLite with PostgreSQL for multi-node deployment.
+2. Add explicit client-supplied idempotency keys to checkpoint execution.
+3. Execute typed compensation handlers against external payment/resource APIs.
 4. Add an optional LLM validator after deterministic validation.
-5. Recover incomplete Sagas after middleware restart.
-6. Replace the simulated stock with real database transactions and lock metrics.
+5. Automatically resume incomplete Sagas after middleware restart.
+6. Measure real database lock wait time and isolation-level behavior.

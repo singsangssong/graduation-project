@@ -440,6 +440,11 @@
               <div class="value" id="compensationActions">0</div>
               <div class="note">rollback 시 역순 보상 작업</div>
             </div>
+            <div class="metric">
+              <div class="label">Persistent Resource Stock</div>
+              <div class="value" id="resourceStock">-</div>
+              <div class="note">SQLite flight_ticket_A 재고</div>
+            </div>
           </div>
 
           <div class="flow">
@@ -597,6 +602,9 @@
             ? new Date(metrics.last_updated_unix_seconds * 1000).toLocaleTimeString()
             : "waiting";
           document.getElementById("raw").textContent = JSON.stringify(data, null, 2);
+          const resourceResponse = await fetch("http://localhost:8080/resource?resource_id=flight_ticket_A");
+          const resource = await resourceResponse.json();
+          document.getElementById("resourceStock").textContent = resource.available_stock;
           renderAgents(metrics.last_winner_agent_id);
         } catch (error) {
           setConnectionStatus(false, "offline");

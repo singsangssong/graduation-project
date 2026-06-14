@@ -2,6 +2,7 @@ import argparse
 import json
 import time
 import urllib.request
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -26,6 +27,16 @@ def reset_server(metrics_url: str):
 def fetch_json(url: str):
     with urllib.request.urlopen(url, timeout=3) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def fetch_resource(metrics_url: str, resource_id: str):
+    query = urllib.parse.urlencode({"resource_id": resource_id})
+    return fetch_json(f"{metrics_url}/resource?{query}")
+
+
+def fetch_events(metrics_url: str, saga_id: str):
+    query = urllib.parse.urlencode({"saga_id": saga_id})
+    return fetch_json(f"{metrics_url}/events?{query}")
 
 
 def run_saga(agent, grpc_addr: str, resource_id: str):
@@ -105,9 +116,12 @@ def main():
     parser.add_argument("--metrics-url", default="http://localhost:8080")
     parser.add_argument("--resource-id", default="flight_ticket_A")
     parser.add_argument("--output", default="outputs/saga-demo-result.json")
+    parser.add_argument("--skip-reset", action="store_true")
     args = parser.parse_args()
 
-    reset_server(args.metrics_url)
+    if not args.skip_reset:
+        reset_server(args.metrics_url)
+    stock_before = fetch_resource(args.metrics_url, args.resource_id)
     started = time.time()
     with ThreadPoolExecutor(max_workers=len(AGENTS)) as executor:
         futures = [
@@ -118,9 +132,17 @@ def main():
 
     results.sort(key=lambda item: item["agent_id"])
     metrics = fetch_json(f"{args.metrics_url}/metrics")
+    stock_after = fetch_resource(args.metrics_url, args.resource_id)
+    event_timelines = {
+        result["saga_id"]: fetch_events(args.metrics_url, result["saga_id"])
+        for result in results
+    }
     payload = {
         "elapsed_sec": round(time.time() - started, 3),
+        "resource_before": stock_before,
+        "resource_after": stock_after,
         "results": results,
+        "event_timelines": event_timelines,
         "metrics": metrics,
     }
 
@@ -141,6 +163,13 @@ def main():
         f"compensated={metrics['metrics']['sagas_compensated']}, "
         f"actions={metrics['metrics']['compensation_actions']}"
     )
+    print(
+        f"Resource stock: {stock_before['available_stock']} "
+        f"-> {stock_after['available_stock']}"
+    )
+    for result in results:
+        timeline = [event["type"] for event in event_timelines[result["saga_id"]]]
+        print(f"{result['agent_id']} events: {' -> '.join(timeline)}")
     print(f"JSON: {output}")
 
 
