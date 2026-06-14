@@ -123,3 +123,58 @@ Persistent resource stock: 2
 - Compensation handlers currently cover typed ticket reserve/release actions.
 - Deterministic validation is implemented; an LLM validator remains future work.
 - ATCC uses a simplified sunk-cost score rather than an RL policy.
+
+## Verified Automated Live Profile
+
+The automated `live` profile was directly verified on June 14, 2026. It starts
+fresh middleware processes for each comparison mode and runs the same seeded
+workload.
+
+| Mode | Agents | TPS | Logical I/O reduction | Winner protection |
+| --- | ---: | ---: | ---: | ---: |
+| baseline | 10 | 120.8 | 0.0% | 25.6% |
+| baseline | 50 | 645.4 | 0.0% | 57.4% |
+| qcfuse | 10 | 94.6 | 90.0% | 37.7% |
+| qcfuse | 50 | 628.4 | 98.0% | 57.4% |
+| full | 10 | 102.7 | 90.0% | 100.0% |
+| full | 50 | 627.9 | 98.0% | 100.0% |
+
+The live profile also passed all eight automated reliability checks:
+
+- exactly one concurrent Saga committed;
+- two losing Sagas compensated;
+- compensation restored stock exactly once;
+- duplicate compensation remained idempotent;
+- unsupported compensation was detected;
+- Saga states recovered after restart;
+- event timelines recovered after restart;
+- resource stock recovered after restart.
+
+TPS values from the short live profile are presentation evidence, not the final
+paper result. The paper must report the five-repetition `paper` profile with
+means and sample standard deviations.
+
+## Verified Five-Repetition Paper Profile
+
+The paper profile was verified on June 14, 2026 after adding a commit barrier so
+that all agents in a run compete inside the same ATCC arbitration window.
+
+| Mode | Agents | Mean TPS ± SD | Mean p95 ms ± SD | I/O reduction | Winner protection |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| baseline | 10 | 70.8 ± 5.6 | 140.3 ± 10.2 | 0.0% | 31.5% |
+| baseline | 50 | 340.5 ± 7.7 | 140.2 ± 2.8 | 0.0% | 52.2% |
+| baseline | 100 | 676.7 ± 12.0 | 140.1 ± 3.4 | 0.0% | 51.9% |
+| baseline | 200 | 1352.2 ± 16.9 | 134.9 ± 1.6 | 0.0% | 43.0% |
+| qcfuse | 10 | 75.9 ± 18.0 | 134.5 ± 24.1 | 90.0% | 39.3% |
+| qcfuse | 50 | 339.7 ± 7.8 | 141.2 ± 3.4 | 98.0% | 42.1% |
+| qcfuse | 100 | 676.2 ± 4.9 | 138.8 ± 1.2 | 98.6% | 29.2% |
+| qcfuse | 200 | 1353.7 ± 8.6 | 135.0 ± 1.3 | 99.4% | 31.1% |
+| full | 10 | 77.3 ± 19.6 | 132.8 ± 25.6 | 90.0% | 100.0% |
+| full | 50 | 340.1 ± 6.1 | 142.1 ± 2.6 | 98.0% | 100.0% |
+| full | 100 | 679.5 ± 14.0 | 141.7 ± 2.7 | 98.6% | 100.0% |
+| full | 200 | 1343.8 ± 35.0 | 138.9 ± 3.6 | 99.4% | 100.0% |
+
+All configurations recorded a 0% request error rate. In this controlled
+simulation, read fusion substantially reduced logical I/O while throughput and
+p95 latency remained similar across comparison modes. ATCC-style arbitration
+consistently selected the maximum-cost candidate in the full mode.

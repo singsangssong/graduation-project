@@ -129,16 +129,15 @@
 
 권장 데모 흐름:
 
-1. Go middleware 실행
-2. `dashboard.html` 화면 열기
-3. `/metrics` live 상태 확인
-4. `deterministic_demo.py` 실행
-5. dashboard에서 다음 지표 설명:
-   - QCFuse saved DB reads
-   - ATCC winner
-   - rollback count
-   - total saved cost
-6. JSON/CSV result file 확인
+1. `python3 agent-python/experiment_runner.py --profile live` 실행
+2. baseline/QCFuse/full 비교 진행 상황 확인
+3. 생성된 `report.html` 열기
+4. QCFuse logical I/O 감소율과 full 모드 winner protection 100% 설명
+5. Saga reliability 8/8 및 restart recovery 설명
+6. 시간이 부족하거나 실행 실패 시 사전 생성한 paper/live 결과를 사용
+
+구체적인 10분 발표 흐름과 대본은 `docs/presentation_10min_scenario.md`를
+기준으로 한다.
 
 ### 7. 결론
 

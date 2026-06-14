@@ -103,6 +103,35 @@ python3 deterministic_demo.py
 
 The demo writes JSON and CSV outputs to `outputs/demo-results/`.
 
+## Run Quantitative Experiments
+
+The experiment runner starts isolated Go middleware processes, executes the
+baseline/QCFuse/full comparison, verifies persistent Saga reliability, and
+generates CSV, JSON, and HTML evidence.
+
+Presentation-friendly live profile:
+
+```sh
+./scripts/run_live_experiment.sh
+```
+
+Repeated paper profile:
+
+```sh
+./scripts/run_paper_experiment.sh
+```
+
+Results are written under `outputs/experiments/<timestamp>/`. Open
+`report.html` to show the comparison table and reliability checks.
+
+Experiment modes can also be selected manually:
+
+```sh
+EXPERIMENT_MODE=baseline  # individual logical reads + arrival-order commit
+EXPERIMENT_MODE=qcfuse    # fused reads + arrival-order commit
+EXPERIMENT_MODE=full      # fused reads + ATCC cost-aware commit
+```
+
 ## Run The SagaLLM-Compatible Demo
 
 Start the middleware, then run:
