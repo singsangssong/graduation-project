@@ -1,81 +1,157 @@
-# Agentic Middleware Graduation Project
+# Agentic Middleware
 
-This project demonstrates an agentic middleware system for coordinating concurrent
-AI-agent transactions over shared resources.
+Agentic Middleware는 여러 LLM 에이전트가 동일한 외부 자원을 읽고, 추론하고,
+변경을 요청하는 상황을 다루기 위한 트랜잭션 미들웨어입니다.
 
-## What This Project Shows
+일반적인 데이터베이스 트랜잭션은 짧고 접근 패턴이 비교적 명확하지만, 에이전트의
+작업은 추론과 도구 호출 때문에 오래 실행되고 다음 행동을 미리 예측하기 어렵습니다.
+이 프로젝트는 에이전트가 추론하는 동안 데이터베이스 연결이나 락을 유지하지 않으면서,
+공유 자원 접근을 조정하고 실패한 작업을 복구하는 방법을 구현합니다.
 
-The current prototype combines three middleware ideas:
+## 주요 기능
 
-- **QCFuse**: fuses many simultaneous read requests into one logical resource lookup.
-- **ATCC**: chooses the winning commit request by agent-side sunk cost, using token
-  usage and inference latency as arbitration signals.
-- **SagaLLM-compatible lifecycle**: records workflow checkpoints, validates a saga
-  before commit, and compensates completed steps when ATCC rejects a transaction.
+- 동일한 자원과 의도를 가진 동시 읽기 요청을 묶어 처리하는 읽기 융합
+- 토큰 사용량과 추론 지연시간을 비용 신호로 사용하는 커밋 중재
+- 체크포인트, 검증, 역순 보상으로 구성된 Saga 수명주기
+- Saga 상태, 이벤트, 자원 재고와 예약의 SQLite 영속화
+- 서버 재시작 이후 상태 및 이벤트 복구
+- 비교 모드와 반복 실행을 지원하는 실험 자동화
 
-The intended demo scenario is a high-contention ticket purchase:
+> 이 저장소의 실험은 각 미들웨어 기능의 동작과 비교 방법을 확인하기 위한 통제된
+> 시뮬레이션입니다. 측정값을 일반적인 운영 환경의 성능으로 해석하지 않습니다.
 
-1. Many agents read the same limited resource.
-2. Agents spend different amounts of reasoning cost.
-3. Each agent registers a Saga checkpoint and passes deterministic validation.
-4. Agents concurrently request a commit.
-5. Middleware commits the highest-cost request and compensates the losing Sagas.
+## 전체 아키텍처
 
-## Repository Structure
+```mermaid
+flowchart LR
+    A["Python Agent Layer<br/>에이전트·데모·실험 실행기"]
+    P["Protocol Buffers / gRPC"]
+    M["Go Middleware"]
+    Q["Read Fusion<br/>resource_id + intent"]
+    C["Cost-aware Arbitration"]
+    S["Saga Coordinator"]
+    D["SQLite Store<br/>Saga·Event·Resource·Reservation"]
+    R["Shared Resource"]
+
+    A --> P --> M
+    M --> Q --> R
+    M --> C
+    M --> S --> D
+    C --> S
+```
+
+Python 계층은 에이전트 워크플로와 실험을 실행하고, Go 계층은 공유 자원 접근 정책과
+Saga 상태 전이를 담당합니다. 두 계층의 계약은
+[`proto/middleware.proto`](proto/middleware.proto)를 단일 원천으로 사용합니다.
+
+## 요청 처리 흐름
+
+```text
+BeginSaga
+  -> RegisterSagaStep(checkpoint + compensation)
+  -> ReadResource(read fusion)
+  -> Agent reasoning
+  -> ValidateSaga
+  -> CommitTransaction(cost-aware arbitration)
+       -> 승인: COMMITTED
+       -> 거절: ABORTED -> reverse compensation -> COMPENSATED
+```
+
+Saga를 사용하지 않는 단순 비교 클라이언트도 `ReadResource`와
+`CommitTransaction`을 직접 호출할 수 있습니다.
+
+## 저장소 구조
 
 ```text
 .
-├── AGENTS.md
-├── README.md
-├── proto/
-│   └── middleware.proto
-├── middleware-go/
-│   ├── main.go
-│   └── pb/
-├── agent-python/
-│   ├── agent_client.py
-│   ├── middleware_pb2.py
-│   ├── middleware_pb2_grpc.py
-│   ├── saga_demo.py
-│   ├── stress_test.py
-│   └── stress_test_v2.py
-├── requirements.txt
-└── agentic_scenario.py
+├── proto/                 # gRPC API의 단일 원천
+├── middleware-go/         # Go 미들웨어 서버와 영속 저장소
+│   ├── main.go            # 읽기 융합, 커밋 중재, metrics 서버
+│   ├── saga.go            # Saga 상태 머신과 보상 흐름
+│   └── sqlite_store.go    # Saga·이벤트·자원·예약 영속화
+├── agent-python/          # Python 클라이언트, 데모, 실험 자동화
+├── scripts/               # 반복 가능한 실험 실행 스크립트
+├── docs/                  # 설계 및 실행 문서
+└── agentic_scenario.py    # 선택적 AutoGen 연동 시나리오
 ```
 
-## Current Status
+## 빠른 실행
 
-- The Go middleware server compiles with the project-local Go cache command.
-- `proto/middleware.proto` is the canonical protobuf contract.
-- Saga lifecycle state is maintained by the Go `SagaCoordinator`.
-- QCFuse batches are isolated by resource ID and intent to avoid cross-resource fusion.
-- Python generated files under `agent-python/` are regenerated from
-  `proto/middleware.proto`.
-- `agentic_scenario.py` is an optional AutoGen-based scenario and requires the
-  Python dependencies in `requirements.txt`.
+### 1. 의존성 준비
 
-## Run Checks
+```sh
+python3 -m pip install -r requirements.txt
+```
 
-Go:
+Go 의존성은 `middleware-go/go.mod`에 정의되어 있습니다.
+
+### 2. 미들웨어 실행
+
+```sh
+cd middleware-go
+TICKET_STOCK=3 SAGA_DB_PATH=data/middleware.db \
+  GOCACHE=/private/tmp/agenic-middleware-gocache go run .
+```
+
+기본 gRPC 주소는 `localhost:50051`, metrics 주소는 `localhost:8080`입니다.
+
+### 3. Saga 데모 실행
+
+다른 터미널에서 실행합니다.
+
+```sh
+cd agent-python
+python3 saga_demo.py
+```
+
+동일한 DB 경로로 미들웨어를 재시작한 뒤 복구 상태를 확인할 수 있습니다.
+
+```sh
+cd agent-python
+python3 recovery_check.py
+```
+
+## 실험 실행
+
+짧은 비교 실행:
+
+```sh
+./scripts/run_live_experiment.sh
+```
+
+반복 실행:
+
+```sh
+./scripts/run_paper_experiment.sh
+```
+
+실험은 `baseline`, `qcfuse`, `full` 모드의 동작 차이를 관찰합니다. 고정 출력
+디렉터리를 다시 사용할 때는 이전 SQLite 상태가 남을 수 있으므로, 새 출력 경로를
+사용하거나 기존 실험 DB를 정리해야 합니다.
+
+자세한 목적과 해석 범위는 [실험 가이드](docs/experiment-guide.md)를 참고합니다.
+
+## 검증
 
 ```sh
 cd middleware-go
 GOCACHE=/private/tmp/agenic-middleware-gocache go test ./...
+GOCACHE=/private/tmp/agenic-middleware-gocache go test -race ./...
 ```
-
-Python syntax:
 
 ```sh
-python3 -m py_compile agent-python/agent_client.py agent-python/deterministic_demo.py agent-python/saga_demo.py agent-python/stress_test.py agent-python/stress_test_v2.py agentic_scenario.py
+python3 -m py_compile \
+  agent-python/agent_client.py \
+  agent-python/deterministic_demo.py \
+  agent-python/saga_demo.py \
+  agent-python/experiment_runner.py \
+  agent-python/recovery_check.py
+
+cd agent-python
+python3 -m unittest test_experiment_stats.py
 ```
 
-Python generated-file import check:
-
-```sh
-python3 -c "import sys; sys.path.insert(0, 'agent-python'); import middleware_pb2, middleware_pb2_grpc"
-```
-
-## Regenerate Python Protobuf Files
+Protocol Buffers 계약을 변경했다면 생성 코드를 다시 만듭니다.
 
 ```sh
 python3 -m grpc_tools.protoc -I proto \
@@ -85,123 +161,30 @@ python3 -m grpc_tools.protoc -I proto \
   proto/middleware.proto
 ```
 
-## Run The Deterministic Demo
+Go 생성 코드는 설치된 `protoc-gen-go`, `protoc-gen-go-grpc` 환경을 사용해 동일한
+`proto/middleware.proto`에서 갱신해야 합니다. 생성 파일은 직접 수정하지 않습니다.
 
-Start the middleware:
+## 문서
 
-```sh
-cd middleware-go
-GOCACHE=/private/tmp/agenic-middleware-gocache go run .
-```
+- [전체 아키텍처](docs/architecture.md)
+- [트랜잭션 수명주기](docs/transaction-lifecycle.md)
+- [읽기 융합](docs/qcfuse-read-fusion.md)
+- [비용 인지 커밋 중재](docs/atcc-cost-aware-arbitration.md)
+- [Saga 복구와 영속성](docs/saga-recovery.md)
+- [실험 가이드](docs/experiment-guide.md)
+- [데모 가이드](docs/demo-guide.md)
+- [현재 한계와 향후 확장](docs/limitations-and-future-work.md)
 
-In another terminal:
+## 구현 범위
 
-```sh
-cd agent-python
-python3 deterministic_demo.py
-```
+이 프로젝트는 AIOS, SagaLLM, ATCC, QCFuse의 전체 구현을 재현하지 않습니다.
+다중 에이전트가 공유 자원에 접근하는 문제를 중심으로 관련 개념을 선택해 하나의
+실행 가능한 미들웨어로 구성했습니다.
 
-The demo writes JSON and CSV outputs to `outputs/demo-results/`.
+- QCFuse-inspired 구현은 KV 캐시 융합이 아니라 동시 자원 읽기 융합입니다.
+- ATCC-inspired 구현은 강화학습 정책이 아니라 고정 비용 점수 기반 중재입니다.
+- SagaLLM-compatible 구현은 전체 계획 프레임워크가 아니라 공유 자원 트랜잭션
+  수명주기와 복구 계층입니다.
 
-## Run Quantitative Experiments
-
-The experiment runner starts isolated Go middleware processes, executes the
-baseline/QCFuse/full comparison, verifies persistent Saga reliability, and
-generates CSV, JSON, and HTML evidence.
-
-Presentation-friendly live profile:
-
-```sh
-./scripts/run_live_experiment.sh
-```
-
-Repeated paper profile:
-
-```sh
-./scripts/run_paper_experiment.sh
-```
-
-Results are written under `outputs/experiments/<timestamp>/`. Open
-`report.html` to show the comparison table and reliability checks.
-
-Experiment modes can also be selected manually:
-
-```sh
-EXPERIMENT_MODE=baseline  # individual logical reads + arrival-order commit
-EXPERIMENT_MODE=qcfuse    # fused reads + arrival-order commit
-EXPERIMENT_MODE=full      # fused reads + ATCC cost-aware commit
-```
-
-## Run The SagaLLM-Compatible Demo
-
-Start the middleware, then run:
-
-```sh
-cd middleware-go
-TICKET_STOCK=3 SAGA_DB_PATH=data/middleware.db \
-  GOCACHE=/private/tmp/agenic-middleware-gocache go run .
-
-# another terminal
-cd agent-python
-python3 saga_demo.py
-```
-
-The demo executes this lifecycle for each concurrent agent:
-
-```text
-BeginSaga
-  -> RegisterSagaStep(checkpoint + compensation)
-  -> ReadResource(QCFuse)
-  -> ValidateSaga
-  -> CommitTransaction(ATCC)
-  -> COMMITTED or COMPENSATED
-```
-
-The result is written to `outputs/saga-demo-result.json`.
-
-Stop and restart the middleware with the same `SAGA_DB_PATH`, then verify
-durable recovery:
-
-```sh
-cd agent-python
-python3 recovery_check.py
-```
-
-## Saga API
-
-The canonical proto exposes:
-
-- `BeginSaga`: creates an agent workflow transaction.
-- `RegisterSagaStep`: records a completed checkpoint and its compensation action.
-- `ValidateSaga`: performs deterministic pre-commit validation.
-- `AbortSaga`: aborts the workflow and compensates completed steps in reverse order.
-- `GetSagaState`: returns the current workflow state and step statuses.
-- `CommitTransaction`: commits a validated Saga winner or compensates ATCC losers.
-
-The Go server persists Saga state, steps, events, resource stock, and reservations
-to SQLite. The `/events?saga_id=...` and `/resource?resource_id=...` HTTP endpoints
-expose the durable event timeline and current resource state.
-
-## Metrics Dashboard
-
-The Go server exposes a metrics API at:
-
-```text
-http://localhost:8080/metrics
-```
-
-Open `dashboard.html` in a browser while the Go server is running to watch:
-
-- QCFuse saved DB reads
-- ATCC commit batches
-- winner agent
-- rollback count
-- total saved cost
-- Saga started/validated/compensated counts
-- compensation action count
-
-## Next Milestones
-
-1. Record a demo video using `deterministic_demo.py` and `dashboard.html`.
-2. Expand report figures with 10/50/100/200 agent stress-test results.
-3. Stabilize the optional AutoGen scenario with real environment variables.
+세부 범위는 [현재 한계와 향후 확장](docs/limitations-and-future-work.md)에 정리되어
+있습니다.
