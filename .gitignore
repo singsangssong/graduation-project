@@ -33,6 +33,7 @@ outputs/
 
 # Local graduation presentation artifacts
 deliverables/final-presentation/
+deliverables/final-paper/
 scripts/build_final_presentation.js
 scripts/export_final_presentation_keynote.applescript
 
