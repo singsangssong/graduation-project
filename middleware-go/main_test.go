@@ -74,3 +74,39 @@ func TestMetricsResetClearsCounters(t *testing.T) {
 		t.Fatalf("Reset() did not clear metrics: %+v", snapshot)
 	}
 }
+
+func TestNormalizeExperimentModeDefaultsToFull(t *testing.T) {
+	if got := normalizeExperimentMode(""); got != ExperimentModeFull {
+		t.Fatalf("normalizeExperimentMode(\"\") = %s, want %s", got, ExperimentModeFull)
+	}
+	if got := normalizeExperimentMode("unknown"); got != ExperimentModeFull {
+		t.Fatalf("normalizeExperimentMode(\"unknown\") = %s, want %s", got, ExperimentModeFull)
+	}
+}
+
+func TestRankCommitTasksForModeOnlyRanksFullMode(t *testing.T) {
+	batch := []CommitTask{
+		{Req: &pb.CommitRequest{AgentId: "first-low", AccumulatedTokens: 100}},
+		{Req: &pb.CommitRequest{AgentId: "second-high", AccumulatedTokens: 5000}},
+	}
+
+	baseline := rankCommitTasksForMode(batch, testConfig(), ExperimentModeBaseline)
+	full := rankCommitTasksForMode(batch, testConfig(), ExperimentModeFull)
+
+	if baseline[0].Req.GetAgentId() != "first-low" {
+		t.Fatalf("baseline winner = %s, want arrival-order first-low", baseline[0].Req.GetAgentId())
+	}
+	if full[0].Req.GetAgentId() != "second-high" {
+		t.Fatalf("full winner = %s, want second-high", full[0].Req.GetAgentId())
+	}
+}
+
+func TestMetricsRecordLogicalDBReads(t *testing.T) {
+	m := NewMiddlewareMetrics()
+
+	m.RecordLogicalDBReads(3)
+
+	if got := m.Snapshot().LogicalDBReads; got != 3 {
+		t.Fatalf("LogicalDBReads = %d, want 3", got)
+	}
+}

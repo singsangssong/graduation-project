@@ -31,6 +31,12 @@ var (
 	sagaCoordinator = NewSagaCoordinator()
 )
 
+const (
+	ExperimentModeBaseline = "baseline"
+	ExperimentModeQCFuse   = "qcfuse"
+	ExperimentModeFull     = "full"
+)
+
 type Config struct {
 	GrpcAddr           string  `json:"grpc_addr"`
 	MetricsAddr        string  `json:"metrics_addr"`
@@ -40,6 +46,7 @@ type Config struct {
 	LatencyCostWeight  float32 `json:"latency_cost_weight"`
 	InitialTicketStock int     `json:"initial_ticket_stock"`
 	SagaDBPath         string  `json:"saga_db_path"`
+	ExperimentMode     string  `json:"experiment_mode"`
 }
 
 func loadConfig() Config {
@@ -52,6 +59,16 @@ func loadConfig() Config {
 		LatencyCostWeight:  getEnvFloat32("ATCC_LATENCY_WEIGHT", 0.5),
 		InitialTicketStock: getEnvInt("TICKET_STOCK", 1),
 		SagaDBPath:         getEnv("SAGA_DB_PATH", "data/middleware.db"),
+		ExperimentMode:     normalizeExperimentMode(getEnv("EXPERIMENT_MODE", ExperimentModeFull)),
+	}
+}
+
+func normalizeExperimentMode(mode string) string {
+	switch mode {
+	case ExperimentModeBaseline, ExperimentModeQCFuse, ExperimentModeFull:
+		return mode
+	default:
+		return ExperimentModeFull
 	}
 }
 
@@ -95,6 +112,7 @@ type MiddlewareMetrics struct {
 	FusedReadBatches       int     `json:"fused_read_batches"`
 	FusedReadRequests      int     `json:"fused_read_requests"`
 	SavedDBReads           int     `json:"saved_db_reads"`
+	LogicalDBReads         int     `json:"logical_db_reads"`
 	CommitRequests         int     `json:"commit_requests"`
 	CommitBatches          int     `json:"commit_batches"`
 	ApprovedCommits        int     `json:"approved_commits"`
@@ -130,6 +148,7 @@ func (m *MiddlewareMetrics) Reset() {
 	m.FusedReadBatches = 0
 	m.FusedReadRequests = 0
 	m.SavedDBReads = 0
+	m.LogicalDBReads = 0
 	m.CommitRequests = 0
 	m.CommitBatches = 0
 	m.ApprovedCommits = 0
@@ -159,11 +178,19 @@ func (m *MiddlewareMetrics) RecordFusedReadBatch(size int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.FusedReadBatches++
+	m.LogicalDBReads++
 	m.FusedReadRequests += size
 	m.LastReadBatchSize = size
 	if size > 1 {
 		m.SavedDBReads += size - 1
 	}
+	m.LastUpdatedUnixSeconds = time.Now().Unix()
+}
+
+func (m *MiddlewareMetrics) RecordLogicalDBReads(count int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.LogicalDBReads += count
 	m.LastUpdatedUnixSeconds = time.Now().Unix()
 }
 
@@ -290,7 +317,7 @@ func QCFuseScheduler() {
 			}
 
 			// 서로 다른 resource/intent 요청은 섞지 않고 key별로 fusion한다.
-			for key, tasks := range groupReadTasksByResource(batch) {
+			for key, tasks := range groupReadTasksForMode(batch, appConfig.ExperimentMode) {
 				metrics.RecordFusedReadBatch(len(tasks))
 				log.Printf("🔍 [QCFuse 작동] key=%s, %d개 요청을 1회의 logical DB I/O로 병합", key, len(tasks))
 
@@ -370,7 +397,7 @@ func ATCCScheduler() {
 			}
 
 			// 🚀 1. 매몰 비용(Sunk Cost) 계산 및 내림차순 정렬
-			batch = rankCommitTasks(batch, appConfig)
+			batch = rankCommitTasksForMode(batch, appConfig, appConfig.ExperimentMode)
 
 			// 📊 [추가된 코드] Top 10 리더보드 출력
 			log.Printf("==================================================")
@@ -453,6 +480,18 @@ func groupReadTasksByResource(tasks []ReadTask) map[string][]ReadTask {
 	return groups
 }
 
+func groupReadTasksForMode(tasks []ReadTask, mode string) map[string][]ReadTask {
+	if mode != ExperimentModeBaseline {
+		return groupReadTasksByResource(tasks)
+	}
+	groups := make(map[string][]ReadTask, len(tasks))
+	for index, task := range tasks {
+		key := task.Req.GetAgentId() + "\x00" + strconv.Itoa(index)
+		groups[key] = []ReadTask{task}
+	}
+	return groups
+}
+
 // 💰 매몰 비용 계산 공식 (토큰 가중치 + 시간 가중치)
 func calculateSunkCost(req *pb.CommitRequest) float32 {
 	return calculateSunkCostWithConfig(req, appConfig)
@@ -473,6 +512,13 @@ func rankCommitTasks(batch []CommitTask, config Config) []CommitTask {
 		return costI > costJ
 	})
 	return ranked
+}
+
+func rankCommitTasksForMode(batch []CommitTask, config Config, mode string) []CommitTask {
+	if mode != ExperimentModeFull {
+		return append([]CommitTask(nil), batch...)
+	}
+	return rankCommitTasks(batch, config)
 }
 
 func StartMetricsServer(addr string) {
