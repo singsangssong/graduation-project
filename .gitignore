@@ -34,8 +34,15 @@ outputs/
 # Local graduation presentation artifacts
 deliverables/final-presentation/
 deliverables/final-paper/
-scripts/build_final_presentation.js
-scripts/export_final_presentation_keynote.applescript
+docs/*presentation*.md
+docs/*speaker*.md
+scripts/*presentation*
+scripts/*keynote*
+scripts/*speaker*
+*.key
+*.ppt
+*.pptx
+*speaker_script*.md
 
 # Local persistent middleware data
 middleware-go/data/

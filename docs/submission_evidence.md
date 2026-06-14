@@ -156,23 +156,24 @@ means and sample standard deviations.
 
 ## Verified Five-Repetition Paper Profile
 
-The paper profile was verified on June 14, 2026 after adding a commit barrier so
-that all agents in a run compete inside the same ATCC arbitration window.
+The final paper profile was re-verified on June 15, 2026 at 00:58:09 KST.
+The experiment uses a commit barrier so that all agents in a run compete inside
+the same ATCC arbitration window.
 
 | Mode | Agents | Mean TPS ± SD | Mean p95 ms ± SD | I/O reduction | Winner protection |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| baseline | 10 | 70.8 ± 5.6 | 140.3 ± 10.2 | 0.0% | 31.5% |
-| baseline | 50 | 340.5 ± 7.7 | 140.2 ± 2.8 | 0.0% | 52.2% |
-| baseline | 100 | 676.7 ± 12.0 | 140.1 ± 3.4 | 0.0% | 51.9% |
-| baseline | 200 | 1352.2 ± 16.9 | 134.9 ± 1.6 | 0.0% | 43.0% |
-| qcfuse | 10 | 75.9 ± 18.0 | 134.5 ± 24.1 | 90.0% | 39.3% |
-| qcfuse | 50 | 339.7 ± 7.8 | 141.2 ± 3.4 | 98.0% | 42.1% |
-| qcfuse | 100 | 676.2 ± 4.9 | 138.8 ± 1.2 | 98.6% | 29.2% |
-| qcfuse | 200 | 1353.7 ± 8.6 | 135.0 ± 1.3 | 99.4% | 31.1% |
-| full | 10 | 77.3 ± 19.6 | 132.8 ± 25.6 | 90.0% | 100.0% |
-| full | 50 | 340.1 ± 6.1 | 142.1 ± 2.6 | 98.0% | 100.0% |
-| full | 100 | 679.5 ± 14.0 | 141.7 ± 2.7 | 98.6% | 100.0% |
-| full | 200 | 1343.8 ± 35.0 | 138.9 ± 3.6 | 99.4% | 100.0% |
+| baseline | 10 | 67.4 ± 2.1 | 146.7 ± 4.9 | 0.0% | 35.2% |
+| baseline | 50 | 338.2 ± 7.0 | 141.6 ± 2.6 | 0.0% | 54.1% |
+| baseline | 100 | 682.3 ± 21.1 | 139.1 ± 4.3 | 0.0% | 31.6% |
+| baseline | 200 | 1357.8 ± 157.6 | 132.7 ± 15.5 | 0.0% | 57.1% |
+| qcfuse | 10 | 70.4 ± 3.1 | 140.3 ± 6.2 | 90.0% | 48.3% |
+| qcfuse | 50 | 340.3 ± 23.0 | 141.6 ± 9.7 | 98.0% | 50.6% |
+| qcfuse | 100 | 677.0 ± 5.6 | 139.7 ± 1.0 | 98.6% | 43.3% |
+| qcfuse | 200 | 1356.7 ± 9.6 | 134.3 ± 2.5 | 99.4% | 31.1% |
+| full | 10 | 66.8 ± 4.2 | 148.6 ± 10.2 | 90.0% | 100.0% |
+| full | 50 | 339.4 ± 8.0 | 142.2 ± 3.2 | 97.6% | 100.0% |
+| full | 100 | 676.8 ± 3.4 | 141.5 ± 1.3 | 98.8% | 100.0% |
+| full | 200 | 1353.7 ± 12.1 | 137.5 ± 1.7 | 99.3% | 100.0% |
 
 All configurations recorded a 0% request error rate. In this controlled
 simulation, read fusion substantially reduced logical I/O while throughput and
